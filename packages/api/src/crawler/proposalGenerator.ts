@@ -1,10 +1,17 @@
 /**
  * Proposal Generator - 生成符合 proposal.schema.json 的提案
  * 对比外部仓库 Skills 与现有 Skills，生成改进建议
+ * 
+ * Decision History Feature:
+ * - Tracks previously reviewed proposals to avoid re-proposing rejected content
+ * - Stores history in .openskills/crawled/decision-history/reviewed-skills.json
+ * - Compares content hash to detect duplicate proposals
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { createTwoFilesPatch } from 'diff';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ParsedSkill, RepoSkills } from './skillsParser';
 import { Proposal, ProposalScope } from '../types';
 
@@ -24,6 +31,20 @@ export interface ProposalGeneratorOptions {
   defaultScope: ProposalScope;
   minContentLength: number;
   skipExisting: boolean;
+  workspaceRoot?: string;  // For loading decision history
+}
+
+export interface DecisionHistoryEntry {
+  decision: 'approve' | 'reject';
+  reason: string;
+  contentHash: string;
+  reviewedAt: string;
+  proposalId?: string;
+}
+
+export interface DecisionHistory {
+  skills: Record<string, DecisionHistoryEntry>;
+  lastUpdated: string | null;
 }
 
 const DEFAULT_OPTIONS: ProposalGeneratorOptions = {
@@ -32,8 +53,16 @@ const DEFAULT_OPTIONS: ProposalGeneratorOptions = {
   skipExisting: false,
 };
 
+// Decision history file path
+const HISTORY_DIR = 'crawled/decision-history';
+const HISTORY_FILE = 'reviewed-skills.json';
+
+/** Path prefix in diff so skills-admin / checkDiffTargetPaths accept (must contain .cursor/skills/) */
+const DIFF_SKILL_PATH_PREFIX = '.cursor/skills';
+
 /**
- * 生成 unified diff
+ * Generate unified diff. Paths MUST be under .cursor/skills/{skillName}/SKILL.md
+ * so diffSafety.checkDiffTargetPaths accepts and skills-admin does not reject.
  */
 function generateDiff(
   skillName: string,
@@ -41,8 +70,8 @@ function generateDiff(
   newContent: string
 ): string {
   const oldContent = existingContent || '';
-  const oldFileName = existingContent ? `a/${skillName}/SKILL.md` : '/dev/null';
-  const newFileName = `b/${skillName}/SKILL.md`;
+  const oldFileName = existingContent ? `a/${DIFF_SKILL_PATH_PREFIX}/${skillName}/SKILL.md` : '/dev/null';
+  const newFileName = `b/${DIFF_SKILL_PATH_PREFIX}/${skillName}/SKILL.md`;
 
   return createTwoFilesPatch(
     oldFileName,
@@ -52,6 +81,55 @@ function generateDiff(
     'existing',
     'proposed'
   );
+}
+
+/**
+ * Generate a content hash for comparing skill content
+ * Uses normalized first 200 chars for quick comparison
+ */
+function hashContent(content: string): string {
+  const normalized = (content || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  return normalized;
+}
+
+/**
+ * Load decision history from file
+ */
+function loadDecisionHistory(workspaceRoot?: string): DecisionHistory {
+  if (!workspaceRoot) {
+    return { skills: {}, lastUpdated: null };
+  }
+  
+  const historyPath = path.join(workspaceRoot, '.openskills', HISTORY_DIR, HISTORY_FILE);
+  
+  try {
+    if (fs.existsSync(historyPath)) {
+      return JSON.parse(fs.readFileSync(historyPath, 'utf-8'));
+    }
+  } catch (e) {
+    // Ignore errors, return empty history
+  }
+  
+  return { skills: {}, lastUpdated: null };
+}
+
+/**
+ * Check if a skill was previously rejected with same content
+ */
+function wasPreviouslyRejected(
+  skillName: string,
+  sourceRepo: string,
+  contentHash: string,
+  history: DecisionHistory
+): { rejected: boolean; reason?: string } {
+  const skillKey = `${skillName}|Crawled from ${sourceRepo}`;
+  const entry = history.skills[skillKey];
+  
+  if (entry && entry.decision === 'reject' && entry.contentHash === contentHash) {
+    return { rejected: true, reason: entry.reason };
+  }
+  
+  return { rejected: false };
 }
 
 /**
@@ -112,15 +190,27 @@ function shouldGenerateProposal(
 
 export class ProposalGenerator {
   private options: ProposalGeneratorOptions;
+  private decisionHistory: DecisionHistory;
+  private skippedDueToHistory: string[] = [];
 
   constructor(options: Partial<ProposalGeneratorOptions> = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    this.decisionHistory = loadDecisionHistory(options.workspaceRoot);
+  }
+
+  /**
+   * Get list of skills skipped due to decision history (for logging)
+   */
+  getSkippedDueToHistory(): string[] {
+    return this.skippedDueToHistory;
   }
 
   /**
    * 从仓库 Skills 生成提案列表
    * @param repoSkills 外部仓库的 Skills
    * @param existingSkills 现有 Skills 列表
+   * 
+   * Now checks decision history to avoid re-proposing previously rejected skills
    */
   generateProposals(
     repoSkills: RepoSkills,
@@ -128,9 +218,24 @@ export class ProposalGenerator {
   ): GeneratedProposal[] {
     const proposals: GeneratedProposal[] = [];
     const existingMap = new Map(existingSkills.map(s => [s.name.toLowerCase(), s]));
+    this.skippedDueToHistory = [];
 
     for (const skill of repoSkills.skills) {
       const existingSkill = existingMap.get(skill.name.toLowerCase()) || null;
+      
+      // Check decision history first
+      const contentHash = hashContent(skill.rawContent);
+      const historyCheck = wasPreviouslyRejected(
+        skill.name,
+        `${repoSkills.fullName} (${repoSkills.stars} stars)`,
+        contentHash,
+        this.decisionHistory
+      );
+      
+      if (historyCheck.rejected) {
+        this.skippedDueToHistory.push(`${skill.name}: ${historyCheck.reason}`);
+        continue;
+      }
       
       const { should, reason } = shouldGenerateProposal(
         skill,

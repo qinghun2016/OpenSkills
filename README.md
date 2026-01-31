@@ -131,4 +131,4 @@ API 默认端口 3000（npm），插件模式 3847；Web 默认 3848。
 
 ## License
 
-MIT
+Licensed under both MIT and Apache-2.0.

@@ -12,11 +12,8 @@ triggers:
 ## Mechanism overview
 <!-- 机制概述 -->
 
-```
-提议 → 管理员审查 → 人类终审（可选） → 应用
-```
-
-任何改进（新增/修改/删除 Skill、规则、配置）均通过此流程完成。
+Flow: **Propose → Admin review → Human final review (optional) → Apply.** All improvements (add/change/delete Skill, rules, config) MUST go through this flow.
+<!-- 提议 → 管理员审查 → 人类终审（可选） → 应用；任何改进均通过此流程完成。 -->
 
 **⚠️ 强制要求：所有改进建议必须通过此流程，且必须通过 API 操作！**
 

@@ -17,6 +17,7 @@ import type {
   Decision,
   Skill,
   CrawlRun,
+  CrawlJobStatus,
   CachedRepo,
   AdminStatus,
   WakeHistory,
@@ -229,10 +230,15 @@ class ApiClient {
     return res.data || [];
   }
 
-  async triggerCrawl(): Promise<CrawlRun> {
-    const res = await this.request<ApiResponse<CrawlRun>>('/crawler/trigger', {
+  async triggerCrawl(): Promise<{ jobId: string }> {
+    const res = await this.request<ApiResponse<{ jobId: string }>>('/crawler/trigger', {
       method: 'POST',
     });
+    return res.data!;
+  }
+
+  async getCrawlJobStatus(jobId: string): Promise<CrawlJobStatus> {
+    const res = await this.request<ApiResponse<CrawlJobStatus>>(`/crawler/jobs/${jobId}`);
     return res.data!;
   }
 

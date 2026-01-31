@@ -65,8 +65,63 @@ export class GitHubClient {
   }
 
   /**
+   * Normalize topic for GitHub search. GitHub docs say search is case-insensitive,
+   * but we canonicalize to lowercase so config can use any casing (e.g. AI-research-SKILLS vs AI-research-SKILLs).
+   */
+  private normalizeSearchTerm(topic: string): string {
+    return (typeof topic === 'string' ? topic.trim() : '').toLowerCase() || 'cursor-skills';
+  }
+
+  /**
+   * Search repos for a single topic.
+   * Queries: (1) topic:term and (2) term in:name, then merge.
+   * Used for per-topic isolation - one topic failure does not affect others.
+   * Search terms are normalized to lowercase to match GitHub's case-insensitive search.
+   */
+  async searchReposForTopic(
+    topic: string,
+    minStars: number,
+    maxResults: number = 30
+  ): Promise<RepoSearchResult[]> {
+    const effectiveTopic = this.normalizeSearchTerm(topic);
+
+    const byFullName = new Map<string, RepoSearchResult>();
+    const perQuery = Math.min(Math.max(10, Math.ceil(maxResults / 2)), 100);
+
+    const runQuery = async (q: string): Promise<void> => {
+      const response = await this.octokit.search.repos({
+        q: q + ` stars:>=${minStars}`,
+        sort: 'stars',
+        order: 'desc',
+        per_page: perQuery,
+      });
+      for (const repo of response.data.items) {
+        const fullName = repo.full_name;
+        if (!byFullName.has(fullName)) {
+          byFullName.set(fullName, {
+            owner: repo.owner?.login || '',
+            repo: repo.name,
+            fullName,
+            description: repo.description,
+            stars: repo.stargazers_count,
+            topics: repo.topics || [],
+            url: repo.html_url,
+            defaultBranch: repo.default_branch,
+          });
+        }
+      }
+    };
+
+    await runQuery(`topic:${effectiveTopic}`);
+    await runQuery(`${effectiveTopic} in:name`);
+
+    return Array.from(byFullName.values()).sort((a, b) => b.stars - a.stars).slice(0, maxResults);
+  }
+
+  /**
    * Search repos by topics and minStars.
    * For each term: (1) topic:term and (2) term in:name, then merge. So repos without the topic but with the name (e.g. andrej-karpathy-skills, AI-research-SKILLs) are found.
+   * Terms are normalized to lowercase so config casing (e.g. AI-research-SKILLS vs AI-research-SKILLs) does not matter.
    */
   async searchRepos(
     topics: string[],
@@ -76,7 +131,8 @@ export class GitHubClient {
     const raw = Array.isArray(topics) ? topics : [];
     const effectiveTopics = raw
       .map((t) => (typeof t === 'string' ? t.trim() : ''))
-      .filter((t) => t.length > 0);
+      .filter((t) => t.length > 0)
+      .map((t) => this.normalizeSearchTerm(t));
     const terms = effectiveTopics.length > 0 ? effectiveTopics : ['cursor-skills'];
 
     const byFullName = new Map<string, RepoSearchResult>();

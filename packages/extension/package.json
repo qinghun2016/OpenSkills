@@ -3,8 +3,16 @@
   "displayName": "OpenSkills",
   "description": "AI Skills 自进化管理工具",
   "version": "0.1.0",
-  "publisher": "openskills",
-  "license": "MIT",
+  "publisher": "RoyLuo",
+  "license": "(MIT OR Apache-2.0)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qinghun2016/OpenSkills.git"
+  },
+  "homepage": "https://github.com/qinghun2016/OpenSkills#readme",
+  "bugs": {
+    "url": "https://github.com/qinghun2016/OpenSkills/issues"
+  },
   "icon": "media/icon.png",
   "engines": {
     "vscode": "^1.80.0"
@@ -13,7 +21,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:openskills.home"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -109,7 +118,7 @@
     "viewsWelcome": [
       {
         "view": "openskills.home",
-        "contents": "[打开 Web 主页面](command:openskills.openPanel)\n[在浏览器中打开](command:openskills.openWebInBrowser)"
+        "contents": "**OpenSkills**\n\n在此处点击下方链接，或点击本视图标题栏的图标。\n\n[打开 Web 主页面](command:openskills.openPanel)\n[在浏览器中打开](command:openskills.openWebInBrowser)"
       }
     ],
     "menus": {
@@ -210,6 +219,26 @@
           "type": "string",
           "default": "",
           "description": "Agent CLI 的完整路径（如果自动检测失败，可以手动指定）。例如：D:\\MyTools\\cursor\\resources\\app\\bin\\agent.exe 或 C:\\Users\\YourName\\.local\\bin\\agent.exe"
+        },
+        "openskills.agentCliType": {
+          "type": "string",
+          "enum": [
+            "cursor",
+            "opencode",
+            "claude"
+          ],
+          "default": "cursor",
+          "description": "Agent CLI 类型。cursor=Cursor Agent CLI, opencode=OpenCode CLI, claude=Claude Code CLI。根据你安装的工具选择。"
+        },
+        "openskills.openCodePath": {
+          "type": "string",
+          "default": "",
+          "description": "OpenCode CLI 的完整路径（如果使用 opencode 类型且自动检测失败，可以手动指定）"
+        },
+        "openskills.claudeCodePath": {
+          "type": "string",
+          "default": "",
+          "description": "Claude Code CLI 的完整路径（如果使用 claude 类型且自动检测失败，可以手动指定）"
         }
       }
     }

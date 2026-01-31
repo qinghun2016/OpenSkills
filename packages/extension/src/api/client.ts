@@ -122,7 +122,14 @@ export class ApiClient {
       });
 
       req.on('error', (err) => {
-        const errorMessage = err.message || String(err);
+        // Unwrap AggregateError (Node.js wraps IPv4+IPv6 localhost failures)
+        let errorMessage = err.message || String(err);
+        const agg = err as { errors?: unknown[] };
+        if (agg?.errors && Array.isArray(agg.errors) && agg.errors.length) {
+          const first = agg.errors[0];
+          const firstMsg = first instanceof Error ? first.message : String(first);
+          if (firstMsg) errorMessage = firstMsg;
+        }
         let detailedError = `API 请求失败: ${errorMessage}`;
         
         // 提供更详细的错误信息

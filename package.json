@@ -1,7 +1,7 @@
 {
   "name": "openskills",
   "private": true,
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "workspaces": [
     "packages/*"
   ],

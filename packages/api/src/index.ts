@@ -229,7 +229,8 @@ app.get('/api', (_req: Request, res: Response) => {
         'GET /api/crawler/runs': 'List crawl run records',
         'GET /api/crawler/runs/:runId': 'Get run details',
         'GET /api/crawler/repos': 'List cached repos',
-        'POST /api/crawler/trigger': 'Trigger a crawl manually',
+        'POST /api/crawler/trigger': 'Trigger a crawl (async, returns jobId)',
+        'GET /api/crawler/jobs/:jobId': 'Get async crawl job status',
         'GET /api/crawler/status': 'Get crawler status',
       },
       scheduler: {

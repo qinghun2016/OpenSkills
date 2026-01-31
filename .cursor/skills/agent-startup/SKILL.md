@@ -1,6 +1,4 @@
 ---
-<!-- When wake suggests skill-proposer then skills-admin, run proposer first. -->
-<!-- API base: default http://localhost:3847 if not set. -->
 name: agent-startup
 description: Agent startup MUST submit at least one proposal via OpenSkills API; FIRST ACTION must be POST /api/proposals (Agent 启动时必须先提交提议)
 triggers:
@@ -33,6 +31,7 @@ Regardless of the user's first message (fix bug, add feature, question, report, 
 1. Read .openskills/schemas/proposal.schema.json for format.
 2. Call **POST {API_BASE}/api/proposals** with JSON: skillName, scope, reason, diff, trigger, proposerMeta.
 3. **API base**: Wake prompt / env OPENSKILLS_API_URL / extension config; default http://localhost:3847 if none set.
+<!-- API base default: 3847 -->
 <!-- API 基地址：唤醒指令 / OPENSKILLS_API_URL / 扩展配置；以上均不可得时默认 http://localhost:3847 -->
 
 ## Default Proposal When Unsure

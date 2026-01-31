@@ -38,6 +38,13 @@ export class OpenSkillsPanel {
     );
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+
+    // When user switches back to this panel tab, refresh so iframe (re)connects to web frontend
+    this._disposables.push(
+      this._panel.onDidChangeViewState((e) => {
+        if (e.webviewPanel.visible) this._update();
+      })
+    );
   }
 
   public static createOrShow(extensionUri: vscode.Uri) {
@@ -126,6 +133,7 @@ export class OpenSkillsPanel {
 <body>
   <button class="open-browser-btn" id="openBrowserBtn" title="在系统默认浏览器中打开">在浏览器中打开</button>
   <iframe src="${escapeHtml(webUrl)}" title="OpenSkills Web"></iframe>
+  <p class="hint" style="position:absolute;bottom:8px;left:8px;margin:0;font-size:11px;color:var(--vscode-descriptionForeground);">若页面长时间空白，请点击「在浏览器中打开」或确认 Web 服务已启动（如 npm run dev）</p>
   <script>
     (function() {
       var btn = document.getElementById('openBrowserBtn');

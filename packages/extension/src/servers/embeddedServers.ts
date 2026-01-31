@@ -103,10 +103,16 @@ function startApi(apiPath: string, workspaceRoot: string, apiPort: number, outpu
   return new Promise((resolve, reject) => {
   const distPath = path.join(apiPath, 'dist', 'index.js');
   if (!fs.existsSync(distPath)) {
-      outputChannel.appendLine('[Servers] API 未编译，请先在 packages/api 下执行 npm run build');
+      outputChannel.appendLine('[Servers] API 未编译，请先在项目根目录执行 npm run build 或在 packages/api 下执行 npm run build');
+      vscode.window.showWarningMessage(
+        'OpenSkills: API 未编译，无法自动启动。请先执行 npm run build（项目根目录）或 npm run dev:api 在终端启动 API。',
+        '知道了'
+      );
       reject(new Error('API dist not found'));
       return;
     }
+
+    outputChannel.appendLine(`[Servers] 启动 API: cwd=${apiPath} dist=${distPath} WORKSPACE_ROOT=${workspaceRoot}`);
 
     const env = {
       ...process.env,
@@ -122,6 +128,7 @@ function startApi(apiPath: string, workspaceRoot: string, apiPort: number, outpu
     });
 
     apiProcess = child;
+    let resolved = false;
     child.stdout?.on('data', (data: Buffer) => {
       outputChannel.appendLine(`[API] ${data.toString().trim()}`);
     });
@@ -131,19 +138,28 @@ function startApi(apiPath: string, workspaceRoot: string, apiPort: number, outpu
     child.on('error', (err) => {
       outputChannel.appendLine(`[API] 启动错误: ${err.message}`);
       apiProcess = null;
-      reject(err);
+      if (!resolved) {
+        resolved = true;
+        reject(err);
+      }
     });
     child.on('exit', (code, signal) => {
       apiProcess = null;
       if (code !== null && code !== 0) {
         outputChannel.appendLine(`[API] 进程退出 code=${code} signal=${signal}`);
+        if (!resolved) {
+          resolved = true;
+          reject(new Error(`API 进程退出 code=${code}，请查看上方 [API] 输出排查（如依赖、WORKSPACE_ROOT 等）`));
+        }
       }
     });
 
     // 简单等待端口可连接再 resolve
     const check = (): void => {
       const req = http.get(`http://127.0.0.1:${apiPort}/api/health`, (res: http.IncomingMessage) => {
+        if (resolved) return;
         if (res.statusCode === 200) {
+          resolved = true;
           outputChannel.appendLine(`[Servers] API 已就绪 http://localhost:${apiPort}`);
           outputChannel.appendLine('[Servers] API 请求与错误会显示在下方 [API] 行；若使用 npm run dev 在终端启动的 API，请查看终端输出。');
           resolve();
@@ -151,7 +167,7 @@ function startApi(apiPath: string, workspaceRoot: string, apiPort: number, outpu
           setTimeout(check, 300);
         }
       });
-      req.on('error', () => setTimeout(check, 300));
+      req.on('error', () => { if (!resolved) setTimeout(check, 300); });
       req.setTimeout(15000, () => {
         req.destroy();
         setTimeout(check, 300);
@@ -207,9 +223,9 @@ function startWebBundled(extensionPath: string, apiPort: number, webPort: number
 
 /**
  * 启动 Web 服务（开发模式：Vite 开发服务器）
+ * @param webPath 工作区内 packages/web 的绝对路径
  */
-function startWeb(extensionPath: string, apiPort: number, webPort: number, outputChannel: vscode.OutputChannel): void {
-  const webPath = path.join(extensionPath, '..', 'web');
+function startWeb(webPath: string, apiPort: number, webPort: number, outputChannel: vscode.OutputChannel): void {
   const packageJsonPath = path.join(webPath, 'package.json');
   if (!fs.existsSync(packageJsonPath)) {
     outputChannel.appendLine('[Servers] Web 包不存在，跳过启动');
@@ -356,21 +372,32 @@ export function startEmbeddedServersIfEnabled(
   outputChannel: vscode.OutputChannel
 ): void {
   if (!shouldAutoStart()) {
-    outputChannel.appendLine('[Servers] 已关闭自动启动，请自行启动 API 与 Web');
+    outputChannel.appendLine('[Servers] 已关闭自动启动，请自行启动 API 与 Web（设置: OpenSkills › Auto Start Servers）');
+    vscode.window.showInformationMessage(
+      'OpenSkills: API 未自动启动。请在设置中开启「Auto Start Servers」，或手动运行 npm run dev:api。',
+      '知道了'
+    );
     return;
   }
 
   const workspaceRoot = getWorkspaceRoot();
   if (!workspaceRoot) {
-    outputChannel.appendLine('[Servers] 未检测到工作区，跳过启动');
+    outputChannel.appendLine('[Servers] 未检测到工作区，跳过启动（请用「文件 › 打开文件夹」打开项目根目录）');
+    vscode.window.showInformationMessage(
+      'OpenSkills: 未检测到工作区，API 未自动启动。请用「文件 › 打开文件夹」打开项目根目录，或手动运行 npm run dev:api。',
+      '知道了'
+    );
     return;
   }
 
   const extensionPath = context.extensionPath;
   const bundledApiPath = path.join(extensionPath, 'resources', 'servers', 'api');
   const bundledWebDist = path.join(extensionPath, 'resources', 'servers', 'web', 'dist');
-  const workspaceApiPath = path.join(extensionPath, '..', 'api');
-  const workspaceWebPath = path.join(extensionPath, '..', 'web');
+  // Resolve packages from workspace root so auto-start works when extension is installed (not just dev mode)
+  const workspaceApiPath = path.join(workspaceRoot, 'packages', 'api');
+  const workspaceWebPath = path.join(workspaceRoot, 'packages', 'web');
+
+  outputChannel.appendLine(`[Servers] 工作区根: ${workspaceRoot}`);
 
   const useBundledApi = fs.existsSync(path.join(bundledApiPath, 'dist', 'index.js'));
   const useBundledWeb = fs.existsSync(path.join(bundledWebDist, 'index.html')) &&
@@ -382,6 +409,10 @@ export function startEmbeddedServersIfEnabled(
 
   if (!useBundledApi && !hasWorkspaceApi) {
     outputChannel.appendLine('[Servers] 未找到 packages/api 或捆绑 API，跳过内嵌启动');
+    vscode.window.showInformationMessage(
+      'OpenSkills: 未找到 API 目录，无法自动启动。请在项目根目录打开工作区并确保存在 packages/api。',
+      '知道了'
+    );
     return;
   }
   if (!useBundledWeb && !hasWorkspaceWeb) {
@@ -390,6 +421,8 @@ export function startEmbeddedServersIfEnabled(
   }
   if (useBundledApi) {
     outputChannel.appendLine('[Servers] 使用扩展内捆绑的 API');
+  } else {
+    outputChannel.appendLine(`[Servers] 使用工作区 API: ${workspaceApiPath}`);
   }
   if (useBundledWeb) {
     outputChannel.appendLine('[Servers] 使用扩展内捆绑的 Web');
@@ -429,7 +462,12 @@ export function startEmbeddedServersIfEnabled(
       try {
         await startApi(apiPath, workspaceRoot, apiPortToUse, outputChannel);
       } catch (err) {
-        outputChannel.appendLine(`[Servers] API 启动失败: ${err instanceof Error ? err.message : String(err)}`);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        outputChannel.appendLine(`[Servers] API 启动失败: ${errMsg}`);
+        vscode.window.showWarningMessage(
+          `OpenSkills: API 启动失败。${errMsg} 可尝试在终端执行 npm run dev:api。`,
+          '知道了'
+        );
         return;
       }
     }
@@ -448,8 +486,13 @@ export function startEmbeddedServersIfEnabled(
     if (useBundledWeb) {
       startWebBundled(extensionPath, apiPortToUse, webPortToUse, outputChannel);
     } else {
-      startWeb(extensionPath, apiPortToUse, webPortToUse, outputChannel);
+      startWeb(workspaceWebPath, apiPortToUse, webPortToUse, outputChannel);
     }
+
+    // Refresh panel after Web is likely ready so iframe connects to frontend
+    setTimeout(() => {
+      void vscode.commands.executeCommand('openskills.refresh').then(undefined, () => {});
+    }, 2500);
 
     // 若 API 或 Web 使用了非默认端口，提示用户查看面板访问地址
     if (actualApiPort !== wantedApiPort || actualWebPort !== wantedWebPort) {

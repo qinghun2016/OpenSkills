@@ -107,6 +107,15 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(homeTreeView);
 
+    // When user opens the OpenSkills sidebar view, auto-open the main Web panel so they "enter the page" directly
+    context.subscriptions.push(
+      homeTreeView.onDidChangeVisibility((e) => {
+        if (e.visible) {
+          void vscode.commands.executeCommand('openskills.openPanel');
+        }
+      })
+    );
+
     // 注册命令
     context.subscriptions.push(
       registerInitCommand(context),

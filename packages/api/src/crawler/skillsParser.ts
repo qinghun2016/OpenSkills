@@ -41,6 +41,13 @@ const SKILL_LOCATIONS = [
   'skills/',
 ];
 
+// Additional skill file patterns (for non-standard repos like AI-research-SKILLs)
+const ALTERNATIVE_SKILL_FILES = [
+  'CLAUDE.md',      // Claude Code format (used by AI-research-SKILLs)
+  'AGENTS.md',      // Agent instructions
+  'CURSOR.md',      // Cursor-specific instructions
+];
+
 /**
  * 解析 YAML frontmatter
  * 格式: ---\nkey: value\n---\ncontent
@@ -134,6 +141,9 @@ export class SkillsParser {
    * 扫描并解析仓库中的所有 Skills
    * @param owner 仓库所有者
    * @param repo 仓库名
+   * 
+   * Now also checks for alternative skill files (CLAUDE.md, AGENTS.md, CURSOR.md)
+   * to support non-standard repos like AI-research-SKILLs
    */
   async parseSkillsFromRepo(owner: string, repo: string): Promise<ParsedSkill[]> {
     const skills: ParsedSkill[] = [];
@@ -144,17 +154,34 @@ export class SkillsParser {
       skills.push(parseSkillFile(rootSkill.path, rootSkill.content));
     }
 
-    // 2. 检查 .cursor/skills/ 目录
+    // 2. 检查替代格式的技能文件 (CLAUDE.md, AGENTS.md, CURSOR.md)
+    for (const altFile of ALTERNATIVE_SKILL_FILES) {
+      const altSkill = await this.client.getRepoContent(owner, repo, altFile);
+      if (altSkill && altSkill.content.length > 100) {  // Minimum content length
+        // Convert to skill format, using repo name as skill name
+        const parsedSkill = parseSkillFile(altSkill.path, altSkill.content);
+        // Override name to be based on file type + repo name
+        const fileType = altFile.replace('.md', '').toLowerCase();
+        parsedSkill.name = `${repo}-${fileType}`;
+        skills.push(parsedSkill);
+      }
+    }
+
+    // 3. 检查 .cursor/skills/ 目录
     const cursorSkills = await this.scanSkillsDirectory(owner, repo, '.cursor/skills');
     skills.push(...cursorSkills);
 
-    // 3. 检查 .claude/skills/ 目录 (部分项目使用)
+    // 4. 检查 .claude/skills/ 目录 (部分项目使用)
     const claudeSkills = await this.scanSkillsDirectory(owner, repo, '.claude/skills');
     skills.push(...claudeSkills);
 
-    // 4. 检查 skills/ 目录
+    // 5. 检查 skills/ 目录
     const generalSkills = await this.scanSkillsDirectory(owner, repo, 'skills');
     skills.push(...generalSkills);
+    
+    // 6. 检查 .claude-plugin/ 目录（用于 Claude 插件格式的技能）
+    const claudePluginSkills = await this.scanSkillsDirectory(owner, repo, '.claude-plugin');
+    skills.push(...claudePluginSkills);
 
     return skills;
   }

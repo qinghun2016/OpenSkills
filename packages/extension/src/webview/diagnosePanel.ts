@@ -144,13 +144,21 @@ export class DiagnosePanel {
   }
 
   /**
-   * 更新面板内容
+   * 更新面板内容。若在异步获取数据期间用户关闭了面板，则跳过更新，避免 "Webview is disposed" 报错。
    */
   private async _update(): Promise<void> {
     try {
-      const webview = this._panel.webview;
       const data = await this._getDiagnosisData();
-      this._panel.webview.html = this._getHtmlForWebview(webview, data);
+      // Panel may have been closed during await; setting .webview throws if disposed
+      try {
+        this._panel.webview.html = this._getHtmlForWebview(this._panel.webview, data);
+      } catch (webviewErr) {
+        const msg = webviewErr instanceof Error ? webviewErr.message : String(webviewErr);
+        if (msg.includes('disposed') || msg.includes('Disposed')) {
+          return; // User closed the panel, ignore
+        }
+        throw webviewErr;
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const out = getOutputChannel();

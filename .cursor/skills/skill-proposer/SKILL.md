@@ -164,8 +164,9 @@ Skill Proposer:
   - 是否有可以优化的性能问题
   - 是否有不必要的操作
 
-- **安全性检查**：
-- **Crawler 鎻愪氦**锛歞iff 涓洰鏍囪矾寰勫繀椤讳负 .cursor/skills/{skillName}/SKILL.md锛堟垨 user 绾у搴旇矾寰勶級锛岀姝娇鐢?/xxx/SKILL.md 绛夐潪鏍囧噯璺緞锛屽惁鍒?skills-admin 浼氭嫆缁濄€俓n - 鍙戠幇鍚嶇О鐩镐技涓斿姛鑳介噸鍙犵殑 skills
+- **Crawler submissions**: diff target path MUST be `.cursor/skills/{skillName}/SKILL.md` (or user-level equivalent); do not use `/xxx/SKILL.md` or skills-admin will reject.
+<!-- Crawler 提交：diff 中目标路径必须为 .cursor/skills/{skillName}/SKILL.md（或 user 级对应路径），否则 skills-admin 会拒绝。 -->
+- Detect name-similar and function-duplicate skills.
   - 是否有安全风险
   - 是否有敏感信息泄露风险
 

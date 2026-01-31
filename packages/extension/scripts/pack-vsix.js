@@ -202,12 +202,14 @@ function main() {
           ? ['/usr/local/bin/cursor', 'cursor', 'code']
           : ['cursor', 'code'];
     let installed = false;
+    let usedCmd = null;
     for (const cmd of candidates) {
       try {
         const runCmd = path.isAbsolute(cmd) ? `"${cmd}" --install-extension "${vsixDest}"` : `${cmd} --install-extension "${vsixDest}"`;
         execSync(runCmd, { stdio: 'inherit', shell: true });
         installed = true;
-        console.log('Installed into editor. Reload the window (Ctrl+Shift+P -> "Developer: Reload Window") to use the new version.');
+        usedCmd = cmd;
+        console.log('Installed into editor.');
         break;
       } catch (e) {
         // try next candidate
@@ -215,6 +217,19 @@ function main() {
     }
     if (!installed) {
       console.warn('Could not install: cursor/code not found. Install manually: Extensions -> "..." -> Install from VSIX ->', vsixDest);
+    } else {
+      // Auto reload window after install
+      console.log('Reloading window to activate the new extension...');
+      try {
+        const reloadCmd = path.isAbsolute(usedCmd)
+          ? `"${usedCmd}" --command workbench.action.reloadWindow`
+          : `${usedCmd} --command workbench.action.reloadWindow`;
+        execSync(reloadCmd, { stdio: 'inherit', shell: true, timeout: 5000 });
+        console.log('Window reload triggered.');
+      } catch (e) {
+        // Reload command may not return immediately or may fail silently; that's OK
+        console.log('Reload command sent (window should reload shortly).');
+      }
     }
   }
 

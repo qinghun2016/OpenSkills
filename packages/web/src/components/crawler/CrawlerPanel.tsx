@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Pagination } from '@/components/ui';
 import { formatRelativeTime } from '@/lib/utils';
-import { useCrawlerRuns, useCachedRepos, useTriggerCrawl } from '@/hooks/useApi';
+import { useCrawlerRuns, useCachedRepos, useTriggerCrawl, useCrawlJobStatus } from '@/hooks/useApi';
 import { toast } from '@/components/ui/Toaster';
 import type { CrawlRun, CachedRepo } from '@/api/types';
 
@@ -26,6 +26,8 @@ export function CrawlerPanel() {
   const { data: runs = [], isLoading: isLoadingRuns } = useCrawlerRuns();
   const { data: repos = [], isLoading: isLoadingRepos } = useCachedRepos();
   const triggerMutation = useTriggerCrawl();
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const { data: jobStatus } = useCrawlJobStatus(activeJobId);
 
   // Pagination for runs
   const [runsCurrentPage, setRunsCurrentPage] = useState(1);
@@ -49,10 +51,11 @@ export function CrawlerPanel() {
 
   const handleTrigger = async () => {
     try {
-      await triggerMutation.mutateAsync();
+      const { jobId } = await triggerMutation.mutateAsync();
+      setActiveJobId(jobId);
       toast({
         title: 'Crawler 已启动',
-        description: '正在扫描仓库寻找 Skills...',
+        description: '异步运行中，各 topic 独立执行',
         variant: 'success',
       });
     } catch (error) {
@@ -64,6 +67,10 @@ export function CrawlerPanel() {
       });
     }
   };
+
+  if (jobStatus?.status === 'completed' || jobStatus?.status === 'failed') {
+    setActiveJobId(null);
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

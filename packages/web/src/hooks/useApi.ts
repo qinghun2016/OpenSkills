@@ -27,6 +27,7 @@ export const queryKeys = {
   skill: (name: string, scope: 'user' | 'project') =>
     ['skills', scope, name] as const,
   crawlerRuns: ['crawler', 'runs'] as const,
+  crawlJob: (jobId: string) => ['crawler', 'job', jobId] as const,
   cachedRepos: ['crawler', 'repos'] as const,
   schedulerStatus: ['scheduler', 'status'] as const,
   adminStatus: ['admin', 'status'] as const,
@@ -217,6 +218,18 @@ export function useCachedRepos() {
   return useQuery({
     queryKey: queryKeys.cachedRepos,
     queryFn: () => api.getCachedRepos(),
+  });
+}
+
+export function useCrawlJobStatus(jobId: string | null, pollInterval = 2000) {
+  return useQuery({
+    queryKey: queryKeys.crawlJob(jobId ?? ''),
+    queryFn: () => api.getCrawlJobStatus(jobId!),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'running' ? pollInterval : false;
+    },
   });
 }
 

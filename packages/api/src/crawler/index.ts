@@ -18,6 +18,34 @@ export interface CrawlConfig {
   maxRepos?: number;
 }
 
+export interface CrawlTopicProgress {
+  topic: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  reposSearched: number;
+  proposalsGenerated: number;
+  errors: string[];
+}
+
+export interface CrawlJobStatus {
+  jobId: string;
+  status: 'running' | 'completed' | 'failed';
+  startedAt: string;
+  completedAt?: string;
+  config: CrawlConfig;
+  topics: CrawlTopicProgress[];
+  overall: {
+    reposSearched: number;
+    reposWithSkills: number;
+    skillsFound: number;
+    proposalsGenerated: number;
+    errors: CrawlError[];
+  };
+}
+
+export interface CrawlProgressCallback {
+  (status: Partial<CrawlJobStatus>): void;
+}
+
 export interface CrawlRunResult {
   runId: string;
   startedAt: string;
@@ -234,90 +262,143 @@ export class Crawler {
     this.workspaceRoot = workspaceRoot;
     this.client = createGitHubClient(token);
     this.parser = createSkillsParser(this.client);
-    this.generator = createProposalGenerator({ defaultScope: 'project' });
+    // Pass workspaceRoot to enable decision history checking
+    this.generator = createProposalGenerator({ 
+      defaultScope: 'project',
+      workspaceRoot: workspaceRoot
+    });
   }
 
   /**
-   * 执行一次完整爬取
+   * Execute crawl with per-topic isolation.
+   * Each topic runs independently; errors in one topic do not affect others.
+   * @param config Crawl config
+   * @param onProgress Optional callback for async status updates (topic progress, overall stats)
+   * @param jobId Optional job ID (when provided, used as runId for async mode)
    */
-  async runCrawl(config: CrawlConfig): Promise<CrawlRunResult> {
-    const runId = generateRunId();
+  async runCrawl(config: CrawlConfig, onProgress?: CrawlProgressCallback, jobId?: string): Promise<CrawlRunResult> {
+    const runId = jobId ?? generateRunId();
     const startedAt = new Date().toISOString();
     const errors: CrawlError[] = [];
     const proposalIds: string[] = [];
+    const topics = config.topics.length > 0 ? config.topics : ['cursor-skills'];
+    const maxReposPerTopic = Math.max(10, Math.ceil((config.maxRepos || 30) / topics.length));
 
     let reposSearched = 0;
     let reposWithSkills = 0;
     let skillsFound = 0;
     let proposalsGenerated = 0;
 
-    // 确保目录结构存在
+    const topicProgress: CrawlTopicProgress[] = topics.map((t) => ({
+      topic: t,
+      status: 'pending' as const,
+      reposSearched: 0,
+      proposalsGenerated: 0,
+      errors: [],
+    }));
+
+    const notifyProgress = () => {
+      onProgress?.({
+        jobId: runId,
+        status: 'running',
+        startedAt,
+        config,
+        topics: [...topicProgress],
+        overall: {
+          reposSearched,
+          reposWithSkills,
+          skillsFound,
+          proposalsGenerated,
+          errors: [...errors],
+        },
+      });
+    };
+
     ensureDir(path.join(this.workspaceRoot, RUNS_DIR));
     ensureDir(path.join(this.workspaceRoot, REPOS_DIR));
     ensureDir(path.join(this.workspaceRoot, PROPOSALS_DIR));
 
-    try {
-      // 1. 检查 API 限流
-      const hasQuota = await this.client.checkRateLimit(10);
-      if (!hasQuota) {
-        throw new Error('Insufficient GitHub API quota');
-      }
+    const existingSkills = loadExistingSkills(this.workspaceRoot);
+    const processedRepos = new Set<string>();
 
-      // 2. 搜索仓库
-      const repos = await this.client.searchRepos(
-        config.topics,
-        config.minStars,
-        config.maxRepos || 30
-      );
-      reposSearched = repos.length;
+    // Per-topic: each topic runs independently, errors isolated
+    for (let i = 0; i < topics.length; i++) {
+      const topic = topics[i];
+      topicProgress[i].status = 'running';
+      notifyProgress();
 
-      // 3. 加载现有 Skills
-      const existingSkills = loadExistingSkills(this.workspaceRoot);
-
-      // 4. 遍历仓库，解析 Skills
-      for (const repo of repos) {
-        try {
-          const repoSkills = await this.parser.getRepoSkills(
-            repo.owner,
-            repo.repo,
-            repo.stars
-          );
-
-          if (repoSkills.skills.length > 0) {
-            reposWithSkills++;
-            skillsFound += repoSkills.skills.length;
-
-            // 缓存仓库信息
-            saveRepoCache(this.workspaceRoot, repoSkills);
-
-            // 生成提案
-            const proposals = this.generator.generateProposals(repoSkills, existingSkills);
-            
-            for (const proposal of proposals) {
-              const proposalFile = this.generator.toProposalFile(proposal);
-              saveProposal(this.workspaceRoot, proposalFile);
-              proposalIds.push(proposal.id);
-              proposalsGenerated++;
-            }
-          }
-        } catch (error: any) {
-          errors.push({
-            repo: repo.fullName,
-            message: error.message || 'Unknown error',
-            timestamp: new Date().toISOString(),
-          });
+      try {
+        const hasQuota = await this.client.checkRateLimit(5);
+        if (!hasQuota) {
+          throw new Error('Insufficient GitHub API quota');
         }
+        const repos = await this.client.searchReposForTopic(
+          topic,
+          config.minStars,
+          maxReposPerTopic
+        );
+
+        topicProgress[i].reposSearched = repos.length;
+
+        for (const repo of repos) {
+          if (processedRepos.has(repo.fullName)) continue;
+          processedRepos.add(repo.fullName);
+          try {
+            const repoSkills = await this.parser.getRepoSkills(
+              repo.owner,
+              repo.repo,
+              repo.stars
+            );
+
+            if (repoSkills.skills.length > 0) {
+              reposWithSkills++;
+              skillsFound += repoSkills.skills.length;
+
+              saveRepoCache(this.workspaceRoot, repoSkills);
+
+              const proposals = this.generator.generateProposals(repoSkills, existingSkills);
+              
+              // Log skills skipped due to decision history
+              const skipped = this.generator.getSkippedDueToHistory();
+              if (skipped.length > 0) {
+                console.log(`[Crawler] Skipped ${skipped.length} skills from ${repo.fullName} (previously rejected)`);
+              }
+
+              for (const proposal of proposals) {
+                const proposalFile = this.generator.toProposalFile(proposal);
+                saveProposal(this.workspaceRoot, proposalFile);
+                proposalIds.push(proposal.id);
+                proposalsGenerated++;
+              }
+              topicProgress[i].proposalsGenerated += proposals.length;
+            }
+          } catch (err: any) {
+            const msg = err?.message || 'Unknown error';
+            errors.push({
+              repo: repo.fullName,
+              message: msg,
+              timestamp: new Date().toISOString(),
+            });
+            topicProgress[i].errors.push(`${repo.fullName}: ${msg}`);
+          }
+        }
+
+        topicProgress[i].status = 'completed';
+      } catch (err: any) {
+        const msg = err?.message || 'Unknown error';
+        errors.push({
+          message: `Topic "${topic}": ${msg}`,
+          timestamp: new Date().toISOString(),
+        });
+        topicProgress[i].status = 'failed';
+        topicProgress[i].errors.push(msg);
       }
-    } catch (error: any) {
-      errors.push({
-        message: error.message || 'Crawl failed',
-        timestamp: new Date().toISOString(),
-      });
+      reposSearched = processedRepos.size;
+      notifyProgress();
     }
 
     const completedAt = new Date().toISOString();
 
-    // 保存运行记录
     const runRecord: CrawlRunRecord = {
       runId,
       startedAt,
@@ -334,6 +415,22 @@ export class Crawler {
     };
 
     saveRunRecord(this.workspaceRoot, runRecord);
+
+    onProgress?.({
+      jobId: runId,
+      status: errors.length > 0 ? 'completed' : 'completed',
+      startedAt,
+      completedAt,
+      config,
+      topics: topicProgress,
+      overall: {
+        reposSearched,
+        reposWithSkills,
+        skillsFound,
+        proposalsGenerated,
+        errors,
+      },
+    });
 
     return {
       runId,

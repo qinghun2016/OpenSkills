@@ -22,10 +22,8 @@ export class HomeProvider implements vscode.TreeDataProvider<HomeTreeItem> {
   }
 
   getChildren(): HomeTreeItem[] {
-    return [
-      new HomeTreeItem('打开 Web 主页面', 'openskills.openPanel'),
-      new HomeTreeItem('在浏览器中打开', 'openskills.openWebInBrowser', 'link-external')
-    ];
+    // Return empty so viewsWelcome always shows (links + hint). Tree items would hide welcome in some hosts.
+    return [];
   }
 
   refresh(): void {

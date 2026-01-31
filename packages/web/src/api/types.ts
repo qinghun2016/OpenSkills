@@ -180,6 +180,30 @@ export interface HistoryQueryParams {
 
 // ============ Crawler 类型 ============
 
+export interface CrawlTopicProgress {
+  topic: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  reposSearched: number;
+  proposalsGenerated: number;
+  errors: string[];
+}
+
+export interface CrawlJobStatus {
+  jobId: string;
+  status: 'running' | 'completed' | 'failed';
+  startedAt: string;
+  completedAt?: string;
+  config: { topics: string[]; minStars: number; maxRepos?: number };
+  topics: CrawlTopicProgress[];
+  overall: {
+    reposSearched: number;
+    reposWithSkills: number;
+    skillsFound: number;
+    proposalsGenerated: number;
+    errors: { repo?: string; message: string; timestamp: string }[];
+  };
+}
+
 export interface CrawlRun {
   id: string;
   startedAt: string;
