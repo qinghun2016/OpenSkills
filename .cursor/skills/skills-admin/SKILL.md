@@ -322,6 +322,12 @@ Content-Type: application/json
 1. **调用** `POST /api/decisions/{proposalId}/apply` 应用已批准提议的 diff（禁止读取/写入 SKILL.md）
 2. 服务端会更新 proposal 状态为 `applied` 并记录历史
 3. 在对话中记录审查结果即可
+4. **Batch review**: Use `node scripts/review-pending-decisions.js` for batch processing.
+   - Default: Evaluates crawler proposals by quality (star count, content length, reason)
+   - Flag `--approve-crawler`: Approve all crawler proposals (for initial import)
+   - Decision history is tracked in `.openskills/crawled/decision-history/reviewed-skills.json`
+   - Previously rejected proposals (with same content) are automatically skipped
+<!-- 批量审查：运行 scripts/review-pending-decisions.js 处理 pending 提案。支持 --approve-crawler 参数批量导入。决策历史自动跟踪，避免重复审核。 -->
 
 ---
 
@@ -363,7 +369,17 @@ Content-Type: application/json
 
 6. **按时间顺序处理 proposals**
 
-**真正启动 Agent**：Wake 调度仅写 `wake/pending.json` 与历史；**扩展「触发唤醒」** 在启用 Cursor Agent CLI 时会执行 `agent chat "审查建议，担任 skills-admin..."` 真正启动 Cursor Agent。否则需用户手动开聊天并输入上述关键词。参见 `docs/ARCHITECTURE_FIX.md`。
+**支持多种 Agent 环境**：OpenSkills 支持以下 Agent CLI 工具，可在扩展设置 `openskills.agentCliType` 中切换：
+
+| 类型 | 命令 | 说明 |
+|------|------|------|
+| `cursor` | `agent chat "..."` | Cursor Agent CLI（默认） |
+| `opencode` | `opencode "..."` | OpenCode CLI |
+| `claude` | `claude "..."` | Claude Code CLI |
+
+Wake 调度仅写 `wake/pending.json` 与历史；**扩展「触发唤醒」** 会根据配置的 CLI 类型执行对应命令启动 Agent。否则需用户手动开聊天并输入上述关键词。
+
+**VS Code 兼容**：在 VS Code 中使用时，若 `.cursor` 目录不存在，扩展会自动使用 `.vscode` 目录存放 skills 和 rules。
 
 扩展在发送命令前会对唤醒 prompt 做 trim、并先 show 终端再 sendText，以避免定时唤醒时「只输入不提交」。
 

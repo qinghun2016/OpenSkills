@@ -1,6 +1,7 @@
 /**
  * OpenSkills 路径工具
  * 处理用户级和项目级路径
+ * 支持 Cursor (.cursor) 和 VS Code (.vscode) 环境
  */
 
 import * as vscode from 'vscode';
@@ -9,7 +10,70 @@ import * as fs from 'fs';
 import * as os from 'os';
 
 /**
- * 获取用户级 .cursor 目录路径
+ * IDE 环境类型
+ */
+export type IdeEnvironment = 'cursor' | 'vscode' | 'unknown';
+
+/**
+ * 检测当前 IDE 环境
+ * 通过 vscode.env.appName 或目录存在性判断
+ */
+export function detectIdeEnvironment(): IdeEnvironment {
+  const appName = vscode.env.appName?.toLowerCase() || '';
+  if (appName.includes('cursor')) {
+    return 'cursor';
+  }
+  // VS Code 或其他 VS Code 衍生版本
+  if (appName.includes('code') || appName.includes('visual studio')) {
+    return 'vscode';
+  }
+  return 'unknown';
+}
+
+/**
+ * 获取配置目录名称（.cursor 或 .vscode）
+ * 优先使用已存在的目录，否则根据 IDE 环境决定
+ */
+export function getConfigDirName(): '.cursor' | '.vscode' {
+  const workspaceRoot = getWorkspaceRoot();
+  if (workspaceRoot) {
+    // 如果 .cursor 存在，优先使用
+    if (fs.existsSync(path.join(workspaceRoot, '.cursor'))) {
+      return '.cursor';
+    }
+    // 如果 .vscode 存在，使用它
+    if (fs.existsSync(path.join(workspaceRoot, '.vscode'))) {
+      return '.vscode';
+    }
+  }
+  // 根据 IDE 环境决定默认值
+  const ide = detectIdeEnvironment();
+  return ide === 'cursor' ? '.cursor' : '.vscode';
+}
+
+/**
+ * 获取用户级配置目录路径
+ * 支持 ~/.cursor 和 ~/.vscode（按优先级检查）
+ */
+export function getUserConfigDir(): string {
+  const home = os.homedir();
+  // 优先使用 .cursor（如果存在）
+  const cursorDir = path.join(home, '.cursor');
+  if (fs.existsSync(cursorDir)) {
+    return cursorDir;
+  }
+  // 其次使用 .vscode
+  const vscodeDir = path.join(home, '.vscode');
+  if (fs.existsSync(vscodeDir)) {
+    return vscodeDir;
+  }
+  // 默认根据 IDE 环境
+  const ide = detectIdeEnvironment();
+  return ide === 'cursor' ? cursorDir : vscodeDir;
+}
+
+/**
+ * 获取用户级 .cursor 目录路径（保持向后兼容）
  */
 export function getUserCursorDir(): string {
   return path.join(os.homedir(), '.cursor');
@@ -17,31 +81,83 @@ export function getUserCursorDir(): string {
 
 /**
  * 获取用户级 skills 目录路径
+ * 支持多个位置（按优先级检查）
  */
 export function getUserSkillsDir(): string {
-  return path.join(getUserCursorDir(), 'skills');
+  const home = os.homedir();
+  // 检查顺序：.cursor/skills, .vscode/skills, .claude/skills
+  const candidates = [
+    path.join(home, '.cursor', 'skills'),
+    path.join(home, '.vscode', 'skills'),
+    path.join(home, '.claude', 'skills'),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
+  }
+  // 默认根据 IDE 环境
+  const ide = detectIdeEnvironment();
+  return ide === 'cursor' 
+    ? path.join(home, '.cursor', 'skills')
+    : path.join(home, '.vscode', 'skills');
 }
 
 /**
- * 获取项目级 .cursor 目录路径
+ * 获取项目级配置目录路径（.cursor 或 .vscode）
+ */
+export function getProjectConfigDir(): string | undefined {
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    return undefined;
+  }
+  const configDirName = getConfigDirName();
+  return path.join(workspaceRoot, configDirName);
+}
+
+/**
+ * 获取项目级 .cursor 目录路径（保持向后兼容）
+ * 如果 .cursor 不存在但 .vscode 存在，返回 .vscode
  */
 export function getProjectCursorDir(): string | undefined {
   const workspaceRoot = getWorkspaceRoot();
   if (!workspaceRoot) {
     return undefined;
   }
-  return path.join(workspaceRoot, '.cursor');
+  const cursorDir = path.join(workspaceRoot, '.cursor');
+  if (fs.existsSync(cursorDir)) {
+    return cursorDir;
+  }
+  const vscodeDir = path.join(workspaceRoot, '.vscode');
+  if (fs.existsSync(vscodeDir)) {
+    return vscodeDir;
+  }
+  // 默认返回 .cursor（保持向后兼容）
+  return cursorDir;
 }
 
 /**
  * 获取项目级 skills 目录路径
+ * 支持 .cursor/skills 和 .vscode/skills
  */
 export function getProjectSkillsDir(): string | undefined {
-  const projectCursorDir = getProjectCursorDir();
-  if (!projectCursorDir) {
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
     return undefined;
   }
-  return path.join(projectCursorDir, 'skills');
+  // 优先检查 .cursor/skills
+  const cursorSkills = path.join(workspaceRoot, '.cursor', 'skills');
+  if (fs.existsSync(cursorSkills)) {
+    return cursorSkills;
+  }
+  // 其次检查 .vscode/skills
+  const vscodeSkills = path.join(workspaceRoot, '.vscode', 'skills');
+  if (fs.existsSync(vscodeSkills)) {
+    return vscodeSkills;
+  }
+  // 返回默认路径（根据 IDE 环境）
+  const configDir = getProjectConfigDir();
+  return configDir ? path.join(configDir, 'skills') : undefined;
 }
 
 /**

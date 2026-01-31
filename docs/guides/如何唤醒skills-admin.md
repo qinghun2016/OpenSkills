@@ -2,19 +2,42 @@
 
 ## 前置条件
 
-**必须安装 Cursor Agent CLI**。安装 Cursor 编辑器 ≠ 安装 Agent CLI，需单独安装。详见 [QUICK_START.md](../QUICK_START.md#1-安装-cursor-agent-cli)。
+**必须安装以下任一 Agent CLI 工具**：
+
+| CLI 类型 | 安装方式 | 适用场景 |
+|----------|----------|----------|
+| **Cursor Agent CLI** | `curl https://cursor.com/install -fsSL \| bash` | Cursor 编辑器用户（默认） |
+| **OpenCode** | `go install github.com/opencode-ai/opencode@latest` | VS Code + Go 开发者 |
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` | VS Code + Claude 用户 |
+
+## 配置 CLI 类型
+
+在 VS Code / Cursor 设置中配置 `openskills.agentCliType`：
+- `cursor`（默认）：使用 Cursor Agent CLI
+- `opencode`：使用 OpenCode CLI
+- `claude`：使用 Claude Code CLI
 
 ## 唤醒步骤
 
 1. 运行命令 **OpenSkills: Trigger Wake**
 2. 会打开名为「OpenSkills Wake」的终端
-3. **首次使用**：若终端显示「Signing in」和链接，请点击该链接在浏览器中完成 Cursor CLI 登录（与编辑器登录分开，仅需一次）
+3. **首次使用**：根据 CLI 类型，可能需要登录认证
 4. Agent 开始执行审查流程
 
 ## 验证
 
-- 终端中应执行 `agent chat "审查建议..."` 命令
+- 根据配置的 CLI 类型，终端会执行对应命令：
+  - Cursor: `agent chat "审查建议..."`
+  - OpenCode: `opencode "审查建议..."`
+  - Claude: `claude "审查建议..."`
 - Agent 会读取 `.openskills/proposals/` 下的 pending proposals 并审查
+
+## VS Code 兼容说明
+
+OpenSkills 完全支持在 VS Code 中使用：
+- 若项目中没有 `.cursor` 目录，扩展会自动使用 `.vscode` 目录
+- Skills 存放在 `.vscode/skills/` 下
+- Rules 存放在 `.vscode/rules/` 下
 
 ## 常见问题
 

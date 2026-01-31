@@ -2,29 +2,52 @@
 
 ## 前置要求
 
-- **Cursor** 编辑器（或 VS Code）
+- **Cursor** 编辑器 或 **VS Code**
 - **Node.js** >= 18.0.0
-- **Cursor Agent CLI**（必须，用于触发唤醒等功能）
+- **Agent CLI 工具**（任选其一）
 
-## 1. 安装 Cursor Agent CLI
+## 1. 安装 Agent CLI
 
-安装 Cursor 编辑器 ≠ 安装 Agent CLI，需单独安装：
+OpenSkills 支持多种 Agent CLI 工具，根据你的环境选择一种安装：
 
-### macOS / Linux / Windows (WSL)
+### 选项 A：Cursor Agent CLI（推荐 Cursor 用户）
 
 ```bash
+# macOS / Linux / Windows (WSL)
 curl https://cursor.com/install -fsSL | bash
 export PATH="$HOME/.local/bin:$PATH"
 agent --version
 ```
 
-### Windows 本机
+Windows 本机推荐安装 WSL 后执行，或在 Git Bash 中执行。
 
-**推荐**：安装 WSL 后执行上述命令。
+### 选项 B：OpenCode CLI（推荐 VS Code + Go 用户）
 
-**备选**：在 Git Bash 中执行安装，并将 `~/.local/bin` 加入 PATH。
+```bash
+# 需要 Go 1.21+
+go install github.com/opencode-ai/opencode@latest
+opencode --version
+```
 
-参考：[Cursor CLI 安装文档](https://cursor.com/docs/cli/installation)
+### 选项 C：Claude Code CLI（推荐 VS Code + Claude 用户）
+
+```bash
+# 需要 Node.js 18+
+npm install -g @anthropic-ai/claude-code
+claude --version
+```
+
+## 1.1 配置 CLI 类型
+
+在 VS Code / Cursor 设置中配置使用的 CLI 类型：
+
+```json
+{
+  "openskills.agentCliType": "cursor"  // 可选: "cursor" | "opencode" | "claude"
+}
+```
+
+或通过设置界面搜索 `openskills.agentCliType` 进行配置。
 
 ## 2. 安装 OpenSkills 插件
 

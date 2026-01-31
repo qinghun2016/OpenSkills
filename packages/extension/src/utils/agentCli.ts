@@ -1,6 +1,7 @@
 /**
  * Agent CLI 工具函数
- * 用于通过 Cursor Agent CLI 执行各种操作
+ * 用于通过 Cursor Agent CLI / OpenCode / Claude Code 执行各种操作
+ * 支持多种 Agent 环境切换
  */
 
 import { exec, spawn } from 'child_process';
@@ -12,13 +13,72 @@ import * as os from 'os';
 import * as https from 'https';
 import { getOutputChannel, getOpenSkillsAdminChannel } from '../outputChannel';
 
+/**
+ * Agent CLI 类型
+ * - cursor: Cursor Agent CLI (默认)
+ * - opencode: OpenCode CLI
+ * - claude: Claude Code CLI
+ */
+export type AgentCliType = 'cursor' | 'opencode' | 'claude';
+
+/**
+ * 获取当前配置的 Agent CLI 类型
+ */
+export function getAgentCliType(): AgentCliType {
+  try {
+    const config = vscode.workspace.getConfiguration('openskills');
+    const cliType = config.get<string>('agentCliType', 'cursor');
+    if (cliType === 'opencode' || cliType === 'claude') {
+      return cliType;
+    }
+    return 'cursor';
+  } catch {
+    return 'cursor';
+  }
+}
+
+/**
+ * 获取 CLI 类型对应的显示名称
+ */
+export function getAgentCliDisplayName(cliType: AgentCliType): string {
+  switch (cliType) {
+    case 'cursor':
+      return 'Cursor Agent CLI';
+    case 'opencode':
+      return 'OpenCode CLI';
+    case 'claude':
+      return 'Claude Code CLI';
+    default:
+      return 'Agent CLI';
+  }
+}
+
+/**
+ * 获取 CLI 类型对应的命令名称
+ */
+export function getAgentCliCommand(cliType: AgentCliType): string {
+  switch (cliType) {
+    case 'cursor':
+      return 'agent';
+    case 'opencode':
+      return 'opencode';
+    case 'claude':
+      return 'claude';
+    default:
+      return 'agent';
+  }
+}
+
 const execAsync = promisify(exec);
 
 /**
  * 返回用于执行的 agent 可执行文件引用（带路径时含空格会加引号）
+ * @param resolvedPath 解析后的完整路径
+ * @param cliType CLI 类型（用于确定默认命令名称）
  */
-function getAgentExecutable(resolvedPath?: string): string {
-  if (!resolvedPath || resolvedPath === 'agent') return 'agent';
+function getAgentExecutable(resolvedPath?: string, cliType?: AgentCliType): string {
+  const defaultCmd = getAgentCliCommand(cliType || getAgentCliType());
+  if (!resolvedPath || resolvedPath === defaultCmd || resolvedPath === 'agent') return defaultCmd;
   return resolvedPath.includes(' ') ? `"${resolvedPath}"` : resolvedPath;
 }
 
@@ -86,6 +146,8 @@ export interface AgentCliCheckResult {
   version?: string;
   error?: string;
   errorDetails?: string;
+  /** 检测到的 CLI 类型 */
+  cliType?: AgentCliType;
 }
 
 /**
@@ -512,14 +574,33 @@ export async function installRipgrep(): Promise<InstallRipgrepResult> {
 
 /**
  * 获取可能的 Agent CLI 路径
+ * @param cliType CLI 类型（默认从配置读取）
  */
-function getPossibleAgentPaths(): string[] {
+function getPossibleAgentPaths(cliType?: AgentCliType): string[] {
   const paths: string[] = [];
+  const type = cliType || getAgentCliType();
+  const cmdName = getAgentCliCommand(type);
+  const isWindows = process.platform === 'win32';
+  const exeName = isWindows ? `${cmdName}.exe` : cmdName;
   
   // 首先检查用户配置的路径
   try {
     const config = vscode.workspace.getConfiguration('openskills');
-    const customPath = config.get<string>('agentCliPath', '');
+    let customPath = '';
+    
+    // 根据 CLI 类型选择对应的配置路径
+    switch (type) {
+      case 'cursor':
+        customPath = config.get<string>('agentCliPath', '');
+        break;
+      case 'opencode':
+        customPath = config.get<string>('openCodePath', '');
+        break;
+      case 'claude':
+        customPath = config.get<string>('claudeCodePath', '');
+        break;
+    }
+    
     if (customPath && customPath.trim()) {
       paths.push(customPath.trim());
     }
@@ -527,76 +608,96 @@ function getPossibleAgentPaths(): string[] {
     // 配置读取失败，继续
   }
   
-  // 然后尝试直接使用 PATH 中的 agent
-  paths.push('agent');
+  // 然后尝试直接使用 PATH 中的命令
+  paths.push(cmdName);
   
   // Windows 常见路径
-  if (process.platform === 'win32') {
+  if (isWindows) {
     const userProfile = process.env.USERPROFILE || process.env.HOME || '';
     const localAppData = process.env.LOCALAPPDATA || '';
     const appData = process.env.APPDATA || '';
     
     if (userProfile) {
-      // ~/.local/bin/agent.exe (Windows)
-      paths.push(path.join(userProfile, '.local', 'bin', 'agent.exe'));
-      paths.push(path.join(userProfile, '.local', 'bin', 'agent'));
-      // AppData\Local 路径
-      paths.push(path.join(userProfile, 'AppData', 'Local', 'Programs', 'cursor', 'resources', 'app', 'bin', 'agent.exe'));
-      paths.push(path.join(userProfile, 'AppData', 'Local', 'Programs', 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
+      // ~/.local/bin/ (Windows)
+      paths.push(path.join(userProfile, '.local', 'bin', exeName));
+      paths.push(path.join(userProfile, '.local', 'bin', cmdName));
+      
+      // 根据 CLI 类型添加特定路径
+      if (type === 'cursor') {
+        paths.push(path.join(userProfile, 'AppData', 'Local', 'Programs', 'cursor', 'resources', 'app', 'bin', 'agent.exe'));
+        paths.push(path.join(userProfile, 'AppData', 'Local', 'Programs', 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
+      } else if (type === 'opencode') {
+        // OpenCode 可能的安装路径
+        paths.push(path.join(userProfile, '.opencode', 'bin', exeName));
+        paths.push(path.join(userProfile, 'go', 'bin', exeName));
+      } else if (type === 'claude') {
+        // Claude Code 可能的安装路径
+        paths.push(path.join(userProfile, '.claude', 'bin', exeName));
+        paths.push(path.join(appData, 'npm', exeName));
+        paths.push(path.join(userProfile, 'AppData', 'Roaming', 'npm', exeName));
+      }
     }
     
     if (localAppData) {
-      paths.push(path.join(localAppData, 'Programs', 'cursor', 'resources', 'app', 'bin', 'agent.exe'));
-      paths.push(path.join(localAppData, 'Programs', 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
+      if (type === 'cursor') {
+        paths.push(path.join(localAppData, 'Programs', 'cursor', 'resources', 'app', 'bin', 'agent.exe'));
+        paths.push(path.join(localAppData, 'Programs', 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
+      }
     }
     
     // 系统路径
     const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
     const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
-    paths.push(path.join(programFiles, 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
-    paths.push(path.join(programFilesX86, 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
     
-    // 检查 Cursor 的实际安装路径（从环境变量或常见位置）
-    // Cursor 可能安装在非标准位置
-    const cursorPaths = [
-      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'cursor', 'resources', 'app', 'bin', 'agent.exe'),
-      path.join(process.env.APPDATA || '', 'cursor', 'resources', 'app', 'bin', 'agent.exe'),
-    ];
-    paths.push(...cursorPaths.filter(p => p && !p.includes('undefined')));
+    if (type === 'cursor') {
+      paths.push(path.join(programFiles, 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
+      paths.push(path.join(programFilesX86, 'Cursor', 'resources', 'app', 'bin', 'agent.exe'));
+      
+      const cursorPaths = [
+        path.join(process.env.LOCALAPPDATA || '', 'Programs', 'cursor', 'resources', 'app', 'bin', 'agent.exe'),
+        path.join(process.env.APPDATA || '', 'cursor', 'resources', 'app', 'bin', 'agent.exe'),
+      ];
+      paths.push(...cursorPaths.filter(p => p && !p.includes('undefined')));
+    }
     
-    // 检查 PATH 环境变量中的所有路径（合并之前的 cursor 路径检查）
+    // 检查 PATH 环境变量中的所有路径
     const pathEnv = process.env.PATH || '';
     const pathDirs = pathEnv.split(path.delimiter);
     for (const dir of pathDirs) {
       if (dir && dir.trim()) {
-        // 展开环境变量（如 %NODE_HOME%）
         const expandedDir = expandEnvVars(dir.trim());
         if (expandedDir && expandedDir !== dir.trim()) {
-          // 如果展开后路径不同，使用展开后的路径
-          paths.push(path.join(expandedDir, 'agent.exe'));
-          paths.push(path.join(expandedDir, 'agent'));
+          paths.push(path.join(expandedDir, exeName));
+          paths.push(path.join(expandedDir, cmdName));
         }
-        // 也保留原始路径（以防某些情况下需要）
-        paths.push(path.join(dir.trim(), 'agent.exe'));
-        paths.push(path.join(dir.trim(), 'agent'));
+        paths.push(path.join(dir.trim(), exeName));
+        paths.push(path.join(dir.trim(), cmdName));
       }
     }
   } else {
     // Unix/Linux/Mac 路径
     const home = process.env.HOME || '';
     if (home) {
-      paths.push(path.join(home, '.local', 'bin', 'agent'));
-      paths.push(path.join(home, '.cargo', 'bin', 'agent'));
+      paths.push(path.join(home, '.local', 'bin', cmdName));
+      paths.push(path.join(home, '.cargo', 'bin', cmdName));
+      
+      if (type === 'opencode') {
+        paths.push(path.join(home, 'go', 'bin', cmdName));
+        paths.push(path.join(home, '.opencode', 'bin', cmdName));
+      } else if (type === 'claude') {
+        paths.push(path.join(home, '.claude', 'bin', cmdName));
+        paths.push(path.join(home, '.npm-global', 'bin', cmdName));
+      }
     }
-    paths.push('/usr/local/bin/agent');
-    paths.push('/usr/bin/agent');
+    paths.push(`/usr/local/bin/${cmdName}`);
+    paths.push(`/usr/bin/${cmdName}`);
     
     // 检查 PATH 环境变量中的所有路径
     const pathEnv = process.env.PATH || '';
     const pathDirs = pathEnv.split(':');
     for (const dir of pathDirs) {
       if (dir && dir.trim()) {
-        paths.push(path.join(dir.trim(), 'agent'));
+        paths.push(path.join(dir.trim(), cmdName));
       }
     }
   }
@@ -606,34 +707,45 @@ function getPossibleAgentPaths(): string[] {
 
 /**
  * 同步解析 agent 可执行文件的完整路径（用于 spawn，避免 ENOENT）。
- * 当 checkAgentCliAvailable 的 resolvedPath 未传入时，spawn 无法找到 'agent'，
- * 因 Extension Development Host 等场景下 PATH 可能不包含 agent 所在目录。
+ * 当 checkAgentCliAvailable 的 resolvedPath 未传入时，spawn 无法找到命令，
+ * 因 Extension Development Host 等场景下 PATH 可能不包含命令所在目录。
+ * @param agentPath 可选的指定路径
+ * @param cliType CLI 类型
  */
-function resolveAgentPathSync(agentPath?: string): string {
-  if (agentPath && agentPath !== 'agent' && fs.existsSync(agentPath)) {
+function resolveAgentPathSync(agentPath?: string, cliType?: AgentCliType): string {
+  const type = cliType || getAgentCliType();
+  const defaultCmd = getAgentCliCommand(type);
+  
+  if (agentPath && agentPath !== defaultCmd && agentPath !== 'agent' && fs.existsSync(agentPath)) {
     return agentPath;
   }
-  const paths = getPossibleAgentPaths();
+  const paths = getPossibleAgentPaths(type);
   for (const p of paths) {
-    if (p === 'agent') continue; // 相对路径，spawn 可能找不到
+    if (p === defaultCmd || p === 'agent') continue; // 相对路径，spawn 可能找不到
     const expanded = expandEnvVars(p);
     if (path.isAbsolute(expanded) && fs.existsSync(expanded)) {
       return expanded;
     }
   }
-  return 'agent'; // 回退，依赖 PATH（可能仍 ENOENT，但至少尝试了）
+  return defaultCmd; // 回退，依赖 PATH（可能仍 ENOENT，但至少尝试了）
 }
 
 /**
- * 检测 Cursor Agent CLI 是否可用
+ * 检测 Agent CLI 是否可用（支持 Cursor/OpenCode/Claude Code）
  * 返回检测结果对象，包含是否可用、版本信息、错误信息等
+ * @param outputChannel 可选的输出通道
+ * @param cliType CLI 类型（默认从配置读取）
  */
-export async function checkAgentCliAvailable(outputChannel?: vscode.OutputChannel): Promise<AgentCliCheckResult> {
+export async function checkAgentCliAvailable(outputChannel?: vscode.OutputChannel, cliType?: AgentCliType): Promise<AgentCliCheckResult> {
+  const type = cliType || getAgentCliType();
+  const cmdName = getAgentCliCommand(type);
+  const displayName = getAgentCliDisplayName(type);
   const isWindows = process.platform === 'win32';
+  const exeName = isWindows ? `${cmdName}.exe` : cmdName;
   let lastError: Error | null = null;
 
   if (outputChannel) {
-    outputChannel.appendLine('[Agent CLI] 开始检测 Cursor Agent CLI...');
+    outputChannel.appendLine(`[Agent CLI] 开始检测 ${displayName}...`);
   }
 
   // 首先尝试使用 PowerShell 执行（这样可以利用 PowerShell 的 PATH 环境变量）
@@ -645,14 +757,14 @@ export async function checkAgentCliAvailable(outputChannel?: vscode.OutputChanne
   try {
     
     if (isWindows) {
-      // Windows: 使用多种方法尝试找到 agent
+      // Windows: 使用多种方法尝试找到命令
       // 方法1: 使用 PowerShell 的 Get-Command（加载用户的 Profile）
       if (outputChannel) {
-        outputChannel.appendLine('[Agent CLI] 方法1: 使用 PowerShell Get-Command 查找 agent...');
+        outputChannel.appendLine(`[Agent CLI] 方法1: 使用 PowerShell Get-Command 查找 ${cmdName}...`);
       }
       try {
         // 设置 PowerShell 输出为 UTF-8，避免中文乱码
-        const psCommand = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Command agent -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source';
+        const psCommand = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Command ${cmdName} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source`;
         const psResult = await execAsync(`powershell.exe -NonInteractive -Command "${psCommand}"`, {
           timeout: 5000,
           maxBuffer: 1024 * 1024,
@@ -666,11 +778,11 @@ export async function checkAgentCliAvailable(outputChannel?: vscode.OutputChanne
         if (lines.length > 0 && lines[0]) {
           agentPath = lines[0];
           if (outputChannel) {
-            outputChannel.appendLine(`[Agent CLI] ✅ 通过 Get-Command 找到 agent: ${agentPath}`);
+            outputChannel.appendLine(`[Agent CLI] ✅ 通过 Get-Command 找到 ${cmdName}: ${agentPath}`);
           }
         } else {
           if (outputChannel) {
-            outputChannel.appendLine('[Agent CLI] ⚠️ Get-Command 未找到 agent');
+            outputChannel.appendLine(`[Agent CLI] ⚠️ Get-Command 未找到 ${cmdName}`);
           }
         }
       } catch (psError) {
@@ -679,14 +791,14 @@ export async function checkAgentCliAvailable(outputChannel?: vscode.OutputChanne
         }
       }
       
-      // 方法2: 如果 Get-Command 失败，尝试在 PATH 中搜索 agent.exe
+      // 方法2: 如果 Get-Command 失败，尝试在 PATH 中搜索
       if (!agentPath || !fs.existsSync(agentPath)) {
         if (outputChannel) {
-          outputChannel.appendLine('[Agent CLI] 方法2: 在 PATH 中搜索 agent.exe...');
+          outputChannel.appendLine(`[Agent CLI] 方法2: 在 PATH 中搜索 ${exeName}...`);
         }
         try {
           // 设置 PowerShell 输出为 UTF-8
-          const searchCommand = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $env:PATH -split \';\' | ForEach-Object { $dir = $_.Trim(); if ($dir -and (Test-Path "$dir\\agent.exe")) { "$dir\\agent.exe"; break } }';
+          const searchCommand = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $env:PATH -split ';' | ForEach-Object { $dir = $_.Trim(); if ($dir -and (Test-Path "$dir\\${exeName}")) { "$dir\\${exeName}"; break } }`;
           const searchResult = await execAsync(`powershell.exe -NonInteractive -Command "${searchCommand}"`, {
             timeout: 5000,
             maxBuffer: 1024 * 1024,
@@ -699,11 +811,11 @@ export async function checkAgentCliAvailable(outputChannel?: vscode.OutputChanne
           if (searchLines.length > 0 && searchLines[0]) {
             agentPath = searchLines[0];
             if (outputChannel) {
-              outputChannel.appendLine(`[Agent CLI] ✅ 在 PATH 中找到 agent: ${agentPath}`);
+              outputChannel.appendLine(`[Agent CLI] ✅ 在 PATH 中找到 ${cmdName}: ${agentPath}`);
             }
           } else {
             if (outputChannel) {
-              outputChannel.appendLine('[Agent CLI] ⚠️ PATH 中未找到 agent.exe');
+              outputChannel.appendLine(`[Agent CLI] ⚠️ PATH 中未找到 ${exeName}`);
             }
           }
         } catch (searchError) {
