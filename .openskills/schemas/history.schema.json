@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://openskills.dev/schemas/history.schema.json",
+  "title": "History Entry",
+  "description": "已采纳修改的历史记录结构，用于审计和回滚功能",
+  "type": "object",
+  "required": [
+    "id",
+    "proposalId",
+    "skillName",
+    "scope",
+    "originalContent",
+    "newContent",
+    "diff",
+    "appliedBy",
+    "appliedAt",
+    "backupPath"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "历史记录的唯一标识符 (UUID v4)"
+    },
+    "proposalId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "关联的提案 ID"
+    },
+    "skillName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "被修改的技能名称"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["user", "project"],
+      "description": "技能作用域：user 为用户级别，project 为项目级别"
+    },
+    "originalContent": {
+      "type": "string",
+      "description": "修改前的 SKILL.md 完整内容"
+    },
+    "newContent": {
+      "type": "string",
+      "description": "修改后的 SKILL.md 完整内容"
+    },
+    "diff": {
+      "type": "string",
+      "description": "unified diff 格式的变更内容"
+    },
+    "appliedBy": {
+      "type": "string",
+      "enum": ["agent", "human"],
+      "description": "执行应用操作的主体：agent（AI代理）或 human（人工）"
+    },
+    "appliedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "应用时间 (ISO 8601 格式)"
+    },
+    "backupPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "备份文件的相对或绝对路径"
+    },
+    "rolledBackAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "回滚时间 (ISO 8601 格式)，未回滚时为 null 或不存在"
+    },
+    "rollbackReason": {
+      "type": "string",
+      "description": "回滚原因说明（可选）"
+    }
+  },
+  "additionalProperties": false
+}

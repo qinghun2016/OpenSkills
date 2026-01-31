@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "theme": {
+      "type": "string",
+      "enum": [
+        "light",
+        "dark",
+        "system"
+      ]
+    },
+    "sidebarCollapsed": {
+      "type": "boolean"
+    },
+    "defaultProposalFilter": {
+      "type": "string",
+      "enum": [
+        "all",
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "newProposal": {
+          "type": "boolean"
+        },
+        "decisionMade": {
+          "type": "boolean"
+        },
+        "wakeTriggered": {
+          "type": "boolean"
+        }
+      }
+    },
+    "shortcuts": {
+      "type": "object"
+    }
+  }
+}

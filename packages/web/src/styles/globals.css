@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #fafafa;
+    --foreground: #0f0f12;
+    
+    --card: #ffffff;
+    --card-foreground: #0f0f12;
+    
+    --popover: #ffffff;
+    --popover-foreground: #0f0f12;
+    
+    --primary: #6366f1;
+    --primary-foreground: #ffffff;
+    
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
+    
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    
+    --border: #e4e4e7;
+    --input: #e4e4e7;
+    --ring: #6366f1;
+    
+    --radius: 10px;
+    
+    --success: #22c55e;
+    --warning: #f59e0b;
+  }
+
+  .dark {
+    --background: #0f0f12;
+    --foreground: #fafafa;
+    
+    --card: #16161a;
+    --card-foreground: #fafafa;
+    
+    --popover: #16161a;
+    --popover-foreground: #fafafa;
+    
+    --primary: #818cf8;
+    --primary-foreground: #0f0f12;
+    
+    --secondary: #27272a;
+    --secondary-foreground: #fafafa;
+    
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    
+    --accent: #27272a;
+    --accent-foreground: #fafafa;
+    
+    --destructive: #dc2626;
+    --destructive-foreground: #fafafa;
+    
+    --border: #27272a;
+    --input: #27272a;
+    --ring: #818cf8;
+    
+    --success: #4ade80;
+    --warning: #fbbf24;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full opacity-20;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground rounded-full opacity-40;
+  }
+
+  /* Focus styles */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-card/80 backdrop-blur-sm;
+  }
+
+  .animate-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  /* Code/Diff viewer styles */
+  .diff-viewer {
+    @apply font-mono text-sm;
+  }
+
+  .diff-viewer pre {
+    @apply m-0 p-0;
+  }
+
+  .diff-added {
+    @apply bg-success/20 text-success;
+  }
+
+  .diff-removed {
+    @apply bg-destructive/20 text-destructive;
+  }
+
+  /* Skeleton loading */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+}

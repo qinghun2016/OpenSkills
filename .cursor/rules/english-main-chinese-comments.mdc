@@ -1,0 +1,21 @@
+---
+description: All .cursor/rules and .cursor/skills MUST use English as main body and Chinese only as comments (rules/skills 英文正文、中文仅作注释)
+alwaysApply: true
+---
+
+# English Main, Chinese as Comments Only
+<!-- 规则名：所有 rule/skill 以英文为主、中文作注释 -->
+
+**When you create or edit any file under `.cursor/rules/` or `.cursor/skills/`**, you **MUST** follow:
+
+- **Main body in English**: Headings, clauses, steps, MUST/forbidden text, and all rule/skill content that the model follows MUST be written in **English**.
+- **Chinese only as comments**: Use **one** of:
+  - Inline: `<!-- 中文说明 -->` (not rendered in Markdown),
+  - Block: `## 中文说明` or `## 注释` at the end, followed by Chinese bullets.
+
+**Frontmatter**: Prefer English for `description`; Chinese may follow in parentheses, e.g. `description: Agent emotion response (Agent 情绪响应)`.
+
+**Execution logic**: Before writing or patching any `.mdc` or `SKILL.md` under `.cursor/rules/` or `.cursor/skills/`, check that the **body** (titles, lists, steps) is in English. If you find yourself writing Chinese in the body, rewrite it in English and put the Chinese in a comment.
+
+<!-- 目的：提升模型对规则/技能的遵守率；统一格式，避免中英混杂。 -->
+<!-- 违反：若正文为中文或中英混杂，视为未遵守本规则；skills-admin 格式检查会要求改为英文正文+中文注释。 -->

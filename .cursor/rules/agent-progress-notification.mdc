@@ -1,0 +1,85 @@
+---
+description: Agent must notify progress for long-running tasks — tell user upfront and show progress (Agent 进度通知规则)
+alwaysApply: true
+---
+
+# Agent Progress Notification
+<!-- Agent 进度通知规则 -->
+
+## Core principle
+<!-- 核心原则 -->
+
+**When the agent runs a task that is expected to take a long time, it MUST tell the user the expected duration upfront and show progress during execution.**
+
+## When to notify progress
+<!-- 何时需要进度通知 -->
+
+### 1. “Long” tasks (notify)
+
+- **Bulk operations** (>5 files, bulk edit/create): threshold > 10 s.
+- **Heavy file work** (large read/write, big search): threshold > 15 s.
+- **Network** (API, fetch, external service): threshold > 5 s.
+- **Code generation** (large refactor, many new files): threshold > 20 s.
+- **Tests** (suite, e2e): threshold > 30 s.
+- **Build** (compile, Docker, package): threshold > 20 s.
+
+### 2. When notification is not required
+
+- Single file read/write, quick query, status check, or anything expected to take < 5 s.
+
+## What to do
+
+### 1. Tell the user before starting
+
+Example:
+
+```
+I will [task description], estimated [time]. Please wait.
+
+Steps:
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+```
+
+### 2. Show progress during execution
+
+- **Text**: e.g. "Processing 15/50 (30%)… Done: read ✓ | In progress: apply… | Pending: write".
+- **Bar**: e.g. "[████████░░░░░░░░░░] 40% (20/50) | Current: src/components/Button.tsx".
+- **Steps**: e.g. "✓ 1/5 … ✓ 2/5 … → 3/5 (in progress) … ○ 4/5 … ○ 5/5".
+
+### 3. Update frequency
+
+- Bulk: every 10% or every 10 items.
+- Multi-step: after each step.
+- Long single step: every 10–15 s.
+- Network: at start and end of request.
+
+### 4. Completion message
+
+When done, state clearly, e.g. "✓ Done. Processed 50 files in 2m15s."
+
+## Workflow
+
+```
+Start task → Estimate duration
+  → If above threshold: tell user → run → update progress → say done
+  → If below: run without progress notification
+```
+
+## Best practices
+
+- Use clear indicators (%, count, time).
+- Give context (current item, done, remaining).
+- Use symbols: ✓ done, → in progress, ○ pending, ⚠ warning, ✗ failed.
+- Update often enough without flooding.
+
+## Edge cases
+
+- **Unknown duration**: Say "estimated long; I will update progress periodically."
+- **Overrun**: Update estimate and briefly explain (e.g. "more files than expected").
+- **Failure**: Say "✗ Failed: [reason]. Processed X/Y so far."
+
+## Consequences of violating
+
+- User may think the system is stuck, interrupt the task, or lose trust.

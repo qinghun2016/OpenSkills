@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "id",
+    "skillName",
+    "scope",
+    "reason",
+    "diff",
+    "trigger",
+    "proposerMeta",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "skillName": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "user",
+        "project"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "diff": {
+      "type": "string"
+    },
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "human",
+        "agent",
+        "crawler"
+      ]
+    },
+    "proposerMeta": {
+      "type": "object",
+      "required": [
+        "source",
+        "createdAt"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "applied"
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+---
+description: Handle repeated user requests — detect repetition and create a rule proposal (处理用户重复请求并创建规则 proposal)
+alwaysApply: true
+---
+
+# Repeated Request Handler
+<!-- 处理用户重复请求的规则 -->
+
+## Detecting repeated requests
+<!-- 重复请求识别 -->
+
+1. **Pattern**: The user makes the same or very similar request multiple times (same or different sessions); similarity threshold ≥ 80%.
+2. **Record**: Log each request, compute similarity, count repetitions.
+3. **Trigger**: Same request ≥ 3 times, or ≥ 2 times across sessions.
+
+## Flow
+<!-- 处理流程 -->
+
+```
+Detect repeated request
+  ↓
+Analyze context and scenario
+  ↓
+Reflect why the user had to repeat
+  ↓
+Identify system/process gap
+  ↓
+Create a top-level rule proposal
+  ↓
+In the proposal: describe the repeated scenario, why repetition was needed, and how a rule can avoid it
+```
+
+## Proposal format example
+<!-- Proposal 格式示例 -->
+
+```json
+{
+  "skillName": "repeated-request-rule",
+  "scope": "project",
+  "reason": "User repeated XXX multiple times; this should be codified as a rule.",
+  "trigger": "repeated-request",
+  "proposerMeta": {
+    "source": "agent",
+    "repeatedCount": 3,
+    "requestPattern": "User asked for...",
+    "scenarios": ["Scenario 1", "Scenario 2", "Scenario 3"]
+  }
+}
+```
+<!-- 中文示例：reason 可为「用户多次提出XXX要求，说明需要将此作为规则固化」。 -->

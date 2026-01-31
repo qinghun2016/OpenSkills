@@ -1,0 +1,8 @@
+{
+  "skillName": "agent-startup",
+  "scope": "project",
+  "reason": "测试：在会话首次响应用户时也应执行启动检查并考虑创建 proposal。",
+  "diff": "--- a/.cursor/rules/agent-startup.mdc\n+++ b/.cursor/rules/agent-startup.mdc\n@@ -38,6 +38,8 @@\n \n ## 启动检查清单\n \n+首次响应用户时即应执行本检查。\n+\n ### 建议执行：提出至少一个改进想法\n",
+  "trigger": "agent",
+  "proposerMeta": { "source": "agent", "name": "test" }
+}

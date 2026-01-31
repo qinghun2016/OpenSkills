@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+packages/api/dist/
+packages/web/dist/
+packages/extension/out/
+*.vsix
+.vsix-pack/
+.vscode-test/
+
+# OpenSkills runtime data (config may contain token - use .env GITHUB_TOKEN)
+.openskills/config.json
+.openskills/crawled/
+.openskills/rewards/
+.openskills/wake/
+.openskills/history/
+.openskills/merge/
+.openskills/preferences-history/
+.openskills/proposals/
+.openskills/decisions/
+.openskills/preferences.json
+.openskills/tmp_*.json
+.openskills/skill-proposer-report.md
+**/packages/api/.openskills/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Temp files
+tmp_*.json
+tmp_*.diff
+tmp-*.diff
+*.tmp
+
+# Test & Playwright
+packages/web/playwright-report/
+packages/web/test-results/
+
+# Logs & debug
+*.log
+.cursor/debug.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kuboard (unrelated to OpenSkills)
+kuboard-v4/

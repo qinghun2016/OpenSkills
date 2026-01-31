@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Left half blue, right half orange; O/S big, P/K in small text below -->
+  <defs>
+    <linearGradient id="split" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e40af"/>
+      <stop offset="50%" stop-color="#1e40af"/>
+      <stop offset="50%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </linearGradient>
+    <clipPath id="outsideRing">
+      <path fill-rule="evenodd" d="M 0 0 h 128 v 128 h -128 z M 64 64 m -30 0 a 30 30 0 1 1 60 0 a 30 30 0 1 1 -60 0 z"/>
+    </clipPath>
+    <!-- Arc for "pen kills": corners up, center down -->
+    <path id="smilePath" d="M 24 68 Q 64 86 104 68"/>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#split)"/>
+  <g clip-path="url(#outsideRing)">
+    <circle cx="28" cy="26" r="14" fill="#3b82f6"/>
+    <circle cx="100" cy="26" r="14" fill="#ea580c"/>
+  </g>
+  <!-- Face ring: top = left (orange) extends slightly right, bottom = right (blue) extends slightly -->
+  <path d="M 64 90 A 30 30 0 0 1 34 64 A 30 30 0 0 1 64 34" fill="none" stroke="#ea580c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 64 34 A 30 30 0 0 1 94 64 A 30 30 0 0 1 64 90" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="butt"/>
+  <circle cx="64" cy="34" r="2" fill="#ea580c"/>
+  <circle cx="64" cy="90" r="2" fill="#3b82f6"/>
+  <!-- Left: O orange at 62, pen white on smile arc -->
+  <text x="62" y="62" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#ea580c" text-anchor="end">O</text>
+  <text font-family="system-ui, sans-serif" font-size="7" font-weight="600" fill="#fff" text-anchor="middle" letter-spacing="0.2em"><textPath href="#smilePath" startOffset="48%"><tspan dx="4">pen</tspan><tspan dx="-4"> kills</tspan></textPath></text>
+  <!-- Right: S blue at 66 -->
+  <text x="66" y="62" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#3b82f6" text-anchor="start">S</text>
+</svg>

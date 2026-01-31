@@ -1,0 +1,33 @@
+---
+description: Agent must self-test after development using appropriate tools (Agent 主动自测规则)
+alwaysApply: true
+---
+
+# Agent Self-Test
+<!-- Agent 主动自测规则 -->
+
+## When self-test is required
+<!-- 必须自测的场景 -->
+
+### 1. Web / UI work
+- Use `cursor-browser-extension` or `cursor-ide-browser` MCP to open the page, test key flows, and capture screenshots for visual check.
+
+### 2. API work
+- Use HTTP requests to test all new or changed endpoints; verify request/response format and error handling.
+
+### 3. Front-end
+- Use browser tools to test UI interaction, state updates, and responsive behavior.
+
+### 4. File operations
+- Verify files exist, content is correct, and permissions are as expected.
+
+### 5. Config changes
+- Verify config is applied and that the change has the intended effect.
+
+## Flow
+<!-- 自测流程 -->
+
+1. Finish the development work.
+2. Identify what needs testing.
+3. Run the relevant MCP/tools and record results.
+4. If issues are found, fix them before closing.

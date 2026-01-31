@@ -1,0 +1,64 @@
+{
+  "adminMode": "agent_only",
+  "skillsAdminSkillRef": "skills-admin",
+  "proposalValidity": {
+    "retentionDays": 90
+  },
+  "crawl": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "minStars": 100,
+    "topics": [
+      "cursor-skills",
+      "skill",
+      "andrej-karpathy-skills",
+      "AI-research-SKILLS"
+    ],
+    "githubToken": ""
+  },
+  "wake": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "reminderPrompt": "首先执行 skill-proposer 分析 skills 并生成 proposals，然后担任 skills-admin 审查所有 pending proposals"
+  },
+  "handoff": {
+    "maxContextTokens": 50000,
+    "compressWhenAbove": 40000
+  },
+  "merge": {
+    "enabled": true,
+    "schedule": "0 3 * * *",
+    "threshold": {
+      "fileCount": 20,
+      "retentionDays": 30
+    },
+    "strategy": {
+      "byDate": true,
+      "byStatus": true,
+      "archiveOld": true
+    },
+    "lockTimeout": 1800
+  },
+  "agentAutoPropose": {
+    "enabled": true,
+    "qualityThreshold": {
+      "minReasonLength": 20,
+      "requireDiff": true
+    }
+  },
+  "reward": {
+    "enabled": true,
+    "scores": {
+      "proposalCreated": 1,
+      "proposalApproved": 5,
+      "proposalApplied": 10,
+      "highQualityBonus": 20
+    },
+    "thresholds": {
+      "highQuality": {
+        "minApprovalRate": 0.8,
+        "minAppliedRate": 0.7
+      }
+    }
+  }
+}

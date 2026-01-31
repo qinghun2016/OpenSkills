@@ -1,0 +1,228 @@
+{
+  "name": "openskills",
+  "displayName": "OpenSkills",
+  "description": "AI Skills 自进化管理工具",
+  "version": "0.1.0",
+  "publisher": "openskills",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "openskills",
+          "title": "OpenSkills",
+          "icon": "media/icon-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "openskills": [
+        {
+          "id": "openskills.home",
+          "name": "主页面"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "openskills.init",
+        "title": "OpenSkills: Initialize",
+        "icon": "$(add)"
+      },
+      {
+        "command": "openskills.openPanel",
+        "title": "OpenSkills: 打开主页面 (Open Panel)",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "openskills.approve",
+        "title": "OpenSkills: Approve Proposal",
+        "icon": "$(check)"
+      },
+      {
+        "command": "openskills.reject",
+        "title": "OpenSkills: Reject Proposal",
+        "icon": "$(x)"
+      },
+      {
+        "command": "openskills.triggerWake",
+        "title": "OpenSkills: Trigger Wake",
+        "icon": "$(bell)"
+      },
+      {
+        "command": "openskills.refresh",
+        "title": "OpenSkills: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "openskills.openWeb",
+        "title": "OpenSkills: Open Web UI",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "openskills.healthCheck",
+        "title": "OpenSkills: Health Check",
+        "icon": "$(heart)"
+      },
+      {
+        "command": "openskills.diagnose",
+        "title": "OpenSkills: Diagnose",
+        "icon": "$(search)"
+      },
+      {
+        "command": "openskills.openDiagnosePanel",
+        "title": "OpenSkills: Open Diagnose Panel",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "openskills.autoFix",
+        "title": "OpenSkills: Auto Fix",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "openskills.syncCursorRules",
+        "title": "OpenSkills: Sync Cursor User Rules",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "openskills.openCliLoginPage",
+        "title": "OpenSkills: 打开 Cursor CLI 登录页",
+        "icon": "$(link-external)"
+      }
+    ],
+    "viewsWelcome": [
+      {
+        "view": "openskills.home",
+        "contents": "[打开 Web 主页面](command:openskills.openPanel)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "openskills.openPanel",
+          "when": "view == openskills.home",
+          "group": "navigation",
+          "icon": "$(globe)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "OpenSkills",
+      "properties": {
+        "openskills.autoStartServers": {
+          "type": "boolean",
+          "default": true,
+          "description": "插件激活时自动启动 API 与 Web 服务（随插件运行）；关闭则需自行启动前后端"
+        },
+        "openskills.apiPort": {
+          "type": "number",
+          "default": 3847,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "API 服务端口（避免与常用 3000 冲突，默认 3847）"
+        },
+        "openskills.webPort": {
+          "type": "number",
+          "default": 3848,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Web 前端服务端口（与 Vite 默认 3848 一致，可修改）"
+        },
+        "openskills.apiUrl": {
+          "type": "string",
+          "default": "",
+          "description": "OpenSkills API 完整地址。留空时使用 http://localhost:{apiPort}；若自建或远程 API 可填写完整 URL"
+        },
+        "openskills.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动刷新 proposals 列表"
+        },
+        "openskills.refreshInterval": {
+          "type": "number",
+          "default": 30,
+          "description": "自动刷新间隔（秒）"
+        },
+        "openskills.wakeUseAgentCli": {
+          "type": "boolean",
+          "default": true,
+          "description": "触发唤醒时用 Cursor Agent CLI 真正启动 Agent；否则仅调 API + 提示手动开聊天"
+        },
+        "openskills.wakeUsePrintMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "唤醒时使用 agent -p（非交互模式）而非 agent chat。非交互模式直接执行、终端实时显示 stream-json 进度，可避免「只输入不提交」和「挂着无输出」。关闭则使用 agent chat（需手动按 Enter 提交）。"
+        },
+        "openskills.wakeAgentTimeoutMinutes": {
+          "type": "number",
+          "default": 45,
+          "minimum": 5,
+          "maximum": 240,
+          "description": "后台 Agent 执行超时（分钟）。超期将自动终止进程，避免长期占用。"
+        },
+        "openskills.wakeOutputFormat": {
+          "type": "string",
+          "enum": [
+            "text",
+            "stream-json"
+          ],
+          "default": "text",
+          "description": "后台 Agent 输出格式。text=仅最终结果（简洁），stream-json=完整 NDJSON（冗长，可看进度）。"
+        },
+        "openskills.autoStartSkillsAdminOnActivation": {
+          "type": "boolean",
+          "default": true,
+          "description": "扩展激活时自动在终端启动 skills-admin Agent（需已安装 Cursor Agent CLI）；关闭则仅创建定义文件，不启动进程"
+        },
+        "openskills.wakeAgentPrompt": {
+          "type": "string",
+          "default": "",
+          "description": "唤醒 Agent 时使用的 prompt；为空则用默认（含 run-everything、无需用户确认：先 handoff/snapshot，再审查所有 pending）。"
+        },
+        "openskills.useAgentCliForSkills": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否使用 Cursor Agent CLI 创建和管理 skills。如果禁用或 Agent CLI 不可用，将使用直接创建方式。"
+        },
+        "openskills.agentCliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Agent CLI 的完整路径（如果自动检测失败，可以手动指定）。例如：D:\\MyTools\\cursor\\resources\\app\\bin\\agent.exe 或 C:\\Users\\YourName\\.local\\bin\\agent.exe"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "sync-icons": "node scripts/sync-icons.js",
+    "package": "node scripts/sync-icons.js && node scripts/pack-vsix.js",
+    "package:install": "npm run compile && node scripts/pack-vsix.js --install"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.2"
+  }
+}

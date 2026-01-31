@@ -1,0 +1,11 @@
+{
+  "skillName": "e2e-docs",
+  "scope": "project",
+  "reason": "E2E 与 CR 整改后：补充 API 端口与 Playwright 前置条件说明，便于本地与 CI 一致运行。",
+  "diff": "--- a/README.md\n+++ b/README.md\n@@ -26,6 +26,8 @@\n ## 快速开始\n \n ### 环境要求\n+\n+- 运行 E2E 前请执行 `npx playwright install chromium`（在 packages/web 下）。\n+- 启动 API 时建议使用 `PORT=3847`，与 Web 代理一致。\n \n ### 安装\n ",
+  "trigger": "agent",
+  "proposerMeta": {
+    "source": "agent",
+    "createdAt": "2026-01-31T00:00:00.000Z"
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://openskills.dev/schemas/config.schema.json",
+  "title": "OpenSkills Configuration",
+  "description": "OpenSkills 系统配置文件，定义管理员模式、提案有效期、爬取和唤醒策略等",
+  "type": "object",
+  "required": ["adminMode", "skillsAdminSkillRef"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema 引用"
+    },
+    "_comment": {
+      "type": "string",
+      "description": "配置文件注释"
+    },
+    "adminMode": {
+      "type": "string",
+      "enum": ["human_only", "agent_only", "agent_then_human"],
+      "description": "审查模式：human_only（仅人类审查）、agent_only（仅Agent自动审查）、agent_then_human（Agent初审后人类终审）"
+    },
+    "skillsAdminSkillRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "管理员 Skill 的引用名称，对应 .cursor/skills/ 下的目录名"
+    },
+    "proposalValidity": {
+      "type": "object",
+      "description": "提案有效期配置",
+      "properties": {
+        "retentionDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "提案保留天数"
+        }
+      },
+      "additionalProperties": false
+    },
+    "crawl": {
+      "type": "object",
+      "description": "GitHub 爬取配置",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用自动爬取"
+        },
+        "schedule": {
+          "type": "string",
+          "pattern": "^(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)$",
+          "description": "爬取定时任务 (Cron 表达式)"
+        },
+        "minStars": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "最低 Star 数过滤"
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "搜索主题列表"
+        },
+        "githubToken": {
+          "type": "string",
+          "description": "GitHub API Token（可为空字符串）"
+        }
+      },
+      "additionalProperties": false
+    },
+    "wake": {
+      "type": "object",
+      "description": "自动唤醒配置",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用自动唤醒"
+        },
+        "schedule": {
+          "type": "string",
+          "pattern": "^(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)$",
+          "description": "唤醒定时任务 (Cron 表达式)"
+        },
+        "reminderPrompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "唤醒提示信息"
+        }
+      },
+      "additionalProperties": false
+    },
+    "handoff": {
+      "type": "object",
+      "description": "上下文交接配置",
+      "properties": {
+        "maxContextTokens": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "最大上下文 Token 数"
+        },
+        "compressWhenAbove": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "触发压缩的 Token 阈值"
+        }
+      },
+      "additionalProperties": false
+    },
+    "merge": {
+      "type": "object",
+      "description": "文件合并配置",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用文件合并"
+        },
+        "schedule": {
+          "type": "string",
+          "pattern": "^(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)\\s+(\\*|[0-9,\\-*/]+)$",
+          "description": "合并定时任务 (Cron 表达式)"
+        },
+        "threshold": {
+          "type": "object",
+          "description": "合并阈值配置",
+          "properties": {
+            "fileCount": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "触发合并的文件数量阈值"
+            },
+            "retentionDays": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "文件保留天数"
+            }
+          },
+          "required": ["fileCount", "retentionDays"],
+          "additionalProperties": false
+        },
+        "strategy": {
+          "type": "object",
+          "description": "合并策略配置",
+          "properties": {
+            "byDate": {
+              "type": "boolean",
+              "description": "是否按日期合并"
+            },
+            "byStatus": {
+              "type": "boolean",
+              "description": "是否按状态合并"
+            },
+            "archiveOld": {
+              "type": "boolean",
+              "description": "是否归档旧文件"
+            }
+          },
+          "required": ["byDate", "byStatus", "archiveOld"],
+          "additionalProperties": false
+        },
+        "lockTimeout": {
+          "type": "integer",
+          "minimum": 60,
+          "description": "锁超时时间（秒）"
+        }
+      },
+      "required": ["enabled", "schedule", "threshold", "strategy"],
+      "additionalProperties": false
+    },
+    "agentAutoPropose": {
+      "type": "object",
+      "description": "Agent 自动提议配置",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用 Agent 自动提议（在 agent_only 模式下，Agent 创建的提议可以自动审查和应用，无需用户确认）"
+        },
+        "qualityThreshold": {
+          "type": "object",
+          "description": "自动批准的质量阈值",
+          "properties": {
+            "minReasonLength": {
+              "type": "integer",
+              "minimum": 10,
+              "description": "提议理由最小长度"
+            },
+            "requireDiff": {
+              "type": "boolean",
+              "description": "是否要求必须有 diff"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["enabled"],
+      "additionalProperties": false
+    },
+    "reward": {
+      "type": "object",
+      "description": "Agent 奖励机制配置",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用奖励机制"
+        },
+        "scores": {
+          "type": "object",
+          "description": "奖励分数配置",
+          "properties": {
+            "proposalCreated": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "创建提议的基础分数"
+            },
+            "proposalApproved": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "提议被批准时的分数"
+            },
+            "proposalApplied": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "提议被应用时的分数"
+            },
+            "highQualityBonus": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "高质量提议的额外奖励分数"
+            }
+          },
+          "additionalProperties": false
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "奖励阈值配置",
+          "properties": {
+            "highQuality": {
+              "type": "object",
+              "description": "高质量提议的阈值",
+              "properties": {
+                "minApprovalRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "最低批准率（0-1）"
+                },
+                "minAppliedRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "最低应用率（0-1）"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["enabled"],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

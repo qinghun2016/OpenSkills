@@ -1,0 +1,61 @@
+---
+description: When the agent suggests an improvement, it MUST create a proposal via API; no direct file write (与 openskills-api-only 一致)
+alwaysApply: true
+---
+
+# Auto-Proposal When Agent Suggests an Improvement
+<!-- Agent 提出改进建议时的自动 proposal 规则 -->
+
+## When this rule applies
+<!-- 适用场景 -->
+
+When the agent **actively suggests an improvement** in the conversation and any of the following hold:
+
+- The suggestion involves creating or changing:
+  - Any `SKILL.md` under `.cursor/skills/`
+  - Any rule (`.mdc`) under `.cursor/rules/`
+  - OpenSkills config or flow under `.openskills/`
+- The suggestion is about: rule updates, skill improvements, or OpenSkills process/config.
+
+In short: **If the agent is "suggesting an improvement" rather than just "answering a question", it MUST create a proposal via API (no direct file write; same as openskills-api-only).**
+
+## Steps to follow
+<!-- 必须执行的步骤 -->
+
+1. **Check if auto-propose is allowed**
+   - Read `.openskills/config.json`.
+   - If `adminMode === "agent_only"` and `agentAutoPropose.enabled === true`, treat as allowed.
+
+2. **Prepare the proposal**
+   - Follow `.openskills/schemas/proposal.schema.json`: `skillName`, `scope` ("project" or "user"), `reason` (≥ 20 chars), `diff` (unified diff), `trigger` ("agent"), `proposerMeta` (source, name, createdAt).
+   - For `.cursor/rules/` targets, use `.mdc` and valid YAML frontmatter in the diff.
+
+3. **Create proposal via API**
+   - Call `POST {API_BASE}/api/proposals` with the configured API base (wake prompt / `OPENSKILLS_API_URL` / extension config; do not hardcode port 3000).
+   - Do **not** create or write any file under `.openskills/proposals/`.
+
+4. **State in the reply**
+   - Say that a proposal was created via API and give its `id`; briefly say what files/rules were touched; note that skills-admin or auto flow will review/apply.
+
+## When a proposal cannot be created
+<!-- 无法自动生成 proposal 时的要求 -->
+
+If the agent cannot create a proposal (e.g. missing target file/diff, API down, schema/config missing, or change too large), it MUST:
+
+1. Explain **why** it cannot create a proposal now.
+2. Suggest **next steps** (e.g. user confirms design or narrows scope).
+3. Optionally give a **draft structure** for a proposal (without writing files).
+
+## Relation to other rules / skills
+<!-- 与现有规则 / Skills 的关系 -->
+
+- **agent-startup**: Requires proposing an improvement at startup; this rule requires that once a concrete improvement is suggested, the agent creates a proposal via API.
+- **skills-admin**: Reviews and decides on proposals; this rule enforces that the agent creates a reviewable proposal instead of only describing the idea.
+- **open-skills-bootstrap**: This rule implements the "propose" step of propose → review → apply.
+
+## Summary
+<!-- 行为约束总结 -->
+
+- Do not give only verbal advice: use **API** to create a proposal (`POST /api/proposals`); no direct file write.
+- Either create a proposal via API or clearly explain why not; do not silently skip this rule.
+- Prefer `scope: "project"` for in-project changes unless the user asks for a user-level skill/rule.

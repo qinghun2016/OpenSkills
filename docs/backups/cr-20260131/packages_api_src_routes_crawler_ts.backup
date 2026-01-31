@@ -1,0 +1,283 @@
+/**
+ * Crawler API Routes
+ * 
+ * Endpoints:
+ * - GET  /api/crawler/runs         - 爬取运行记录列表
+ * - GET  /api/crawler/runs/:runId  - 运行详情
+ * - GET  /api/crawler/repos        - 已缓存的仓库列表
+ * - POST /api/crawler/trigger      - 手动触发一次爬取
+ * - GET  /api/crawler/status       - 获取爬取器状态
+ */
+
+import { Router, Request, Response } from 'express';
+import * as path from 'path';
+import * as fs from 'fs';
+import { 
+  Crawler, 
+  listCrawlRuns, 
+  getCrawlRun, 
+  listCachedRepos,
+  CrawlConfig,
+  runCrawlFromConfig
+} from '../crawler';
+import { OpenSkillsConfig, ApiResponse } from '../types';
+
+const router = Router();
+
+// 获取工作区根目录
+function getWorkspaceRoot(req: Request): string {
+  // 从请求头或环境变量获取，默认为当前工作目录
+  return (req.headers['x-workspace-root'] as string) || 
+         process.env.WORKSPACE_ROOT || 
+         process.cwd();
+}
+
+// 读取配置
+function loadConfig(workspaceRoot: string): OpenSkillsConfig | null {
+  const configPath = path.join(workspaceRoot, '.openskills', 'config.json');
+  if (!fs.existsSync(configPath)) {
+    return null;
+  }
+  return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+}
+
+/**
+ * GET /api/crawler/runs
+ * 获取爬取运行记录列表
+ */
+router.get('/runs', async (req: Request, res: Response) => {
+  try {
+    const workspaceRoot = getWorkspaceRoot(req);
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    const runs = await listCrawlRuns(workspaceRoot);
+    const limitedRuns = runs.slice(0, limit);
+    
+    // 转换为前端期望的格式
+    const formattedRuns = limitedRuns.map(run => ({
+      id: run.runId,
+      status: run.completedAt 
+        ? (run.errors && run.errors.length > 0 ? 'failed' : 'completed')
+        : 'running',
+      reposScanned: run.stats?.reposSearched || 0,
+      proposalsCreated: run.stats?.proposalsGenerated || 0,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt,
+      error: run.errors && run.errors.length > 0 ? run.errors.join('; ') : undefined,
+    }));
+    
+    res.json({
+      success: true,
+      data: formattedRuns,
+      total: formattedRuns.length,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to list crawl runs',
+    } as ApiResponse<null>);
+  }
+});
+
+/**
+ * GET /api/crawler/runs/:runId
+ * 获取单个运行记录详情
+ */
+router.get('/runs/:runId', async (req: Request, res: Response) => {
+  try {
+    const workspaceRoot = getWorkspaceRoot(req);
+    const { runId } = req.params;
+    
+    const run = await getCrawlRun(workspaceRoot, runId);
+    
+    if (!run) {
+      return res.status(404).json({
+        success: false,
+        error: 'Crawl run not found',
+      } as ApiResponse<null>);
+    }
+    
+    res.json({
+      success: true,
+      data: run,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get crawl run',
+    } as ApiResponse<null>);
+  }
+});
+
+/**
+ * GET /api/crawler/repos
+ * 获取已缓存的仓库列表
+ */
+router.get('/repos', (req: Request, res: Response) => {
+  try {
+    const workspaceRoot = getWorkspaceRoot(req);
+    const limit = parseInt(req.query.limit as string) || 50;
+    
+    const repos = listCachedRepos(workspaceRoot).slice(0, limit);
+    
+    // 转换为前端期望的格式
+    const formattedRepos = repos.map(r => ({
+      name: r.fullName,
+      stars: r.stars,
+      lastCrawled: r.crawledAt,
+      skillsFound: r.skills?.length || 0,
+    }));
+    
+    res.json({
+      success: true,
+      data: formattedRepos,
+      total: repos.length,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to list cached repos',
+    } as ApiResponse<null>);
+  }
+});
+
+/**
+ * GET /api/crawler/repos/:owner/:repo
+ * 获取单个缓存仓库详情
+ */
+router.get('/repos/:owner/:repo', (req: Request, res: Response) => {
+  try {
+    const workspaceRoot = getWorkspaceRoot(req);
+    const { owner, repo } = req.params;
+    
+    const repos = listCachedRepos(workspaceRoot);
+    const targetRepo = repos.find(r => r.owner === owner && r.repo === repo);
+    
+    if (!targetRepo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cached repo not found',
+      } as ApiResponse<null>);
+    }
+    
+    res.json({
+      success: true,
+      data: targetRepo,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get cached repo',
+    } as ApiResponse<null>);
+  }
+});
+
+/**
+ * POST /api/crawler/trigger
+ * 手动触发一次爬取
+ * 
+ * Body (optional):
+ * {
+ *   topics?: string[],
+ *   minStars?: number,
+ *   maxRepos?: number,
+ *   githubToken?: string
+ * }
+ */
+router.post('/trigger', async (req: Request, res: Response) => {
+  try {
+    const workspaceRoot = getWorkspaceRoot(req);
+    const config = loadConfig(workspaceRoot);
+    
+    if (!config) {
+      return res.status(400).json({
+        success: false,
+        error: 'OpenSkills config not found',
+      } as ApiResponse<null>);
+    }
+
+    // 优先使用环境变量中的 token，其次使用请求参数，最后使用配置文件
+    const githubToken = process.env.GITHUB_TOKEN || req.body.githubToken || config.crawl.githubToken || undefined;
+
+    // 合并配置和请求参数
+    const crawlConfig: CrawlConfig = {
+      enabled: true,
+      topics: req.body.topics || config.crawl.topics,
+      minStars: req.body.minStars ?? config.crawl.minStars,
+      maxRepos: req.body.maxRepos || 30,
+      githubToken: githubToken,
+    };
+
+    // 创建 Crawler 实例并执行
+    const crawler = new Crawler(workspaceRoot, githubToken);
+    const result = await crawler.runCrawl(crawlConfig);
+    
+    res.json({
+      success: true,
+      data: result,
+      message: `Crawl completed: ${result.proposalsGenerated} proposals generated`,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Crawl failed',
+    } as ApiResponse<null>);
+  }
+});
+
+/**
+ * GET /api/crawler/status
+ * 获取爬取器状态（包括 GitHub API 限流信息）
+ */
+router.get('/status', async (req: Request, res: Response) => {
+  try {
+    const workspaceRoot = getWorkspaceRoot(req);
+    const config = loadConfig(workspaceRoot);
+    
+    if (!config) {
+      return res.status(400).json({
+        success: false,
+        error: 'OpenSkills config not found',
+      } as ApiResponse<null>);
+    }
+
+    // 优先使用环境变量中的 token，其次使用配置文件中的 token
+    const githubToken = process.env.GITHUB_TOKEN || config.crawl.githubToken || undefined;
+    const crawler = new Crawler(workspaceRoot, githubToken);
+    const status = await crawler.getStatus();
+    
+    // 获取最近运行信息
+    const recentRuns = (await listCrawlRuns(workspaceRoot)).slice(0, 5);
+    
+    res.json({
+      success: true,
+      data: {
+        enabled: config.crawl.enabled,
+        schedule: config.crawl.schedule,
+        config: {
+          topics: config.crawl.topics,
+          minStars: config.crawl.minStars,
+        },
+        github: {
+          hasToken: status.tokenStatus.hasToken,
+          rateLimitPerHour: status.tokenStatus.rateLimit,
+          remaining: status.rateLimit.remaining,
+          resetAt: status.rateLimit.reset.toISOString(),
+        },
+        recentRuns: recentRuns.map(r => ({
+          runId: r.runId,
+          completedAt: r.completedAt,
+          proposalsGenerated: r.stats.proposalsGenerated,
+          errors: r.errors.length,
+        })),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get status',
+    } as ApiResponse<null>);
+  }
+});
+
+export default router;

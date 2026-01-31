@@ -1,0 +1,133 @@
+---
+description: All OpenSkills operations MUST go through API; no direct file operations (OpenSkills 必须通过 API，禁止直接文件操作)
+alwaysApply: true
+---
+
+# OpenSkills API-Only Rule
+<!-- OpenSkills API-Only 操作规则 -->
+
+## Core principle
+<!-- 核心原则 -->
+
+**All OpenSkills-related operations MUST be done via the API. Agents MUST NOT modify the file system directly.**
+
+## Why this rule
+<!-- 问题背景 -->
+
+When an Agent or admin edits files directly:
+- Cursor detects file changes.
+- User confirmation is required to continue.
+- Tasks get stuck and cannot complete automatically.
+- Workflow continuity is affected.
+
+## Requirements
+<!-- 强制要求 -->
+
+### 1. Proposal operations
+
+**Forbidden**: Creating `.openskills/proposals/{id}.json` directly.
+
+**Forbidden**: Writing the proposal request body (JSON) to **any file** (e.g. `proposal.json`, `body.json`, `tmp-proposal.json`) and then using `curl -d @file`. Writing any file for the proposal body triggers Cursor file-change confirmation and **blocks the main task**. You MUST NOT "write a small JSON file for the proposal body and then curl with that file".
+
+**Required**: Create via API. Send the JSON body **in the request** only: (A) use `fetch` with `body: JSON.stringify({...})` in memory; (B) use `curl -d '{"skillName":"...",...}'` with inline JSON; (C) pipe JSON from stdout: `node -e "console.log(JSON.stringify({...}))" | node scripts/propose-stdin.js`. Do not write a .json file. **API base** comes from: wake prompt “当前 OpenSkills API 基地址为: …”, env `OPENSKILLS_API_URL`, or extension config `openskills.apiPort`; default port 3847 for plugin, do not hardcode 3000.
+```javascript
+// Correct: baseUrl from wake prompt / OPENSKILLS_API_URL / extension config
+await fetch(`${API_BASE}/api/proposals`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    skillName: 'xxx',
+    scope: 'project',
+    reason: '...',
+    diff: '...',
+    trigger: 'agent',
+    proposerMeta: { source: 'agent', name: '...' }
+  })
+});
+```
+
+### 2. Decision operations
+
+**Forbidden**: Creating `.openskills/decisions/{proposalId}.json` directly.
+
+**Required**: Create decisions via API (both approve and reject use the same endpoint).
+```javascript
+// Approve: POST /api/decisions, decision 'approve'; API_BASE as above
+await fetch(`${API_BASE}/api/decisions`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    proposalId: 'xxx',
+    decision: 'approve',  // or 'reject'
+    reason: '...',
+    decidedBy: 'agent'
+  })
+});
+```
+
+### 3. Applying diff
+
+**Forbidden**: Reading, editing, or writing SKILL.md files directly.
+
+**Required**: Apply diff via API.
+```javascript
+// Apply an approved decision
+await fetch(`${API_BASE}/api/decisions/{proposalId}/apply`, {
+  method: 'POST'
+});
+```
+
+### 4. Read operations
+
+**Allowed**: Reading files directly (read-only does not trigger confirmation).
+
+**Recommended**: Use API for a single interface.
+```javascript
+// List proposals
+await fetch(`${API_BASE}/api/proposals?status=pending`);
+
+// Get one proposal
+await fetch(`${API_BASE}/api/proposals/{id}`);
+```
+
+## API availability check
+<!-- API 可用性检查 -->
+
+Before any OpenSkills operation, check that the API is available:
+
+```javascript
+// Health check (API_BASE from config / wake prompt / OPENSKILLS_API_URL)
+const healthCheck = await fetch(`${API_BASE}/api/health`);
+if (!healthCheck.ok) {
+  throw new Error('OpenSkills API unavailable; start the API or check API base URL');
+}
+```
+
+## Exceptions
+<!-- 例外情况 -->
+
+Direct file use is allowed only in these cases (prefer API when possible):
+
+1. **Project init**: First-time creation of `.openskills/` directory structure.
+2. **API unavailable**: Clearly state the reason and suggest starting the API.
+3. **Read-only**: Reading config, schemas, etc. (no confirmation triggered).
+
+## Consequences of violating this rule
+<!-- 违反此规则的后果 -->
+
+- Task hangs and requires manual user confirmation.
+- Workflow is interrupted.
+- Automation is less effective.
+- User experience is worse.
+
+## API endpoints reference
+<!-- 相关 API 端点 -->
+
+| Operation | Endpoint | Method |
+|-----------|----------|--------|
+| Create proposal | `/api/proposals` | POST |
+| List proposals | `/api/proposals` (e.g. ?status=pending) | GET |
+| Create decision (approve/reject) | `/api/decisions` (body: proposalId, decision, reason, decidedBy) | POST |
+| Apply approved diff | `/api/decisions/{proposalId}/apply` | POST |
+| Get config | `/api/config` | GET |
+| Update config | `/api/config` | PATCH |

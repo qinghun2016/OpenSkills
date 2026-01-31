@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "proposalId",
+    "decision",
+    "reason",
+    "decidedBy",
+    "decidedAt"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "reject"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "decidedBy": {
+      "type": "string",
+      "enum": [
+        "human",
+        "agent"
+      ]
+    },
+    "decidedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "appliedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

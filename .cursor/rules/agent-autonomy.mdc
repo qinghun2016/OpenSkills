@@ -1,0 +1,75 @@
+---
+description: Agent autonomy — do not ask the user to confirm what the agent can confirm itself (Agent 自主性：不向用户确认自身能确认的事)
+alwaysApply: true
+---
+
+# Agent Autonomy
+<!-- Agent 自主性原则 -->
+
+## Core principle
+<!-- 核心原则 -->
+
+**Do not ask the user to confirm something the agent can confirm on its own, unless the agent lacks permission or needs user help.**
+
+## What the agent can confirm on its own
+<!-- Agent 自身能够确认的操作 -->
+
+### 1. File system
+
+- ✅ **File existence**: Use `read_file`, `list_dir`, `glob_file_search`, etc.
+  - Example: Check if `.cursor/skills/skills-admin/SKILL.md` exists.
+  - ❌ Wrong: Ask the user "Please confirm the file exists."
+  - ✅ Right: Read the file; if missing, create or report an error.
+
+- ✅ **File content**: Use `read_file`.
+  - Example: Read config, code, docs.
+  - ❌ Wrong: Ask "What is the file content?"
+  - ✅ Right: Read the file and analyze.
+
+- ✅ **Directory structure**: Use `list_dir`, `glob_file_search`.
+  - Example: List files, find by type.
+  - ❌ Wrong: Ask "What files are in the directory?"
+  - ✅ Right: List the directory.
+
+### 2. Code and config
+
+- ✅ **Code analysis**: Read code and analyze (implementation, errors, dependencies).
+- ✅ **Config reading**: Read JSON/YAML/TOML configs (e.g. `package.json`, `.openskills/config.json`).
+- ✅ **Dependency check**: Read `node_modules`, `package.json`; do not ask the user for dependency info.
+
+### 3. Status checks
+
+- ✅ **Build**: Run compile/test/lint commands and interpret output; do not ask "Are there compile errors?"
+- ✅ **Tests**: Run tests and analyze results.
+- ✅ **Linter**: Use `read_lints`; do not ask the user for lint status.
+
+### 4. Environment
+
+- ✅ **System info**: Use `user_info` (OS, shell, workspace path); do not ask "What OS are you using?"
+
+## When user confirmation is needed
+<!-- 需要用户确认的情况 -->
+
+- **Permission**: No write access, admin required, or network restricted.
+- **User decision**: Business choice (e.g. which implementation), preferences (e.g. UI style), or sensitive action (e.g. delete important file).
+- **Unavailable info**: API keys, passwords, third-party config that only the user can provide.
+
+## Workflow
+<!-- 实施指南 -->
+
+```
+Need to confirm something
+  ↓
+Can a tool get it? → Yes: use the tool, do not ask the user
+  ↓
+No → Ask the user or report an error
+```
+
+**❌ Wrong:** User asks "Check if skills-admin exists." Agent replies "Please confirm the file exists at .cursor/skills/skills-admin/SKILL.md."
+
+**✅ Right:** Agent uses `read_file` or `list_dir`, then replies "Checked; project-level skills-admin exists at .cursor/skills/skills-admin/SKILL.md."
+
+## Consequences of violating
+<!-- 违反此规则的后果 -->
+
+- Lower efficiency, unnecessary interaction, worse UX, wasted time.

@@ -1,0 +1,118 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署环境'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: '版本标签 (留空使用最新)'
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 运行测试
+        run: npm test
+
+      - name: 构建项目
+        run: npm run build
+
+      - name: 部署到服务器 (示例 - SSH)
+        if: github.event.inputs.environment == 'production'
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          # 配置 SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts
+          
+          # 创建部署包（npm 部署，不含 Docker）
+          tar -czf openskills-deploy.tar.gz \
+            packages/api/dist \
+            packages/web/dist \
+            package*.json \
+            .openskills
+          
+          # 上传到服务器
+          scp -i ~/.ssh/deploy_key openskills-deploy.tar.gz $SERVER_USER@$SERVER_HOST:/tmp/
+          
+          # 在服务器上部署（需预装 Node.js，使用 pm2 / node 等）
+          ssh -i ~/.ssh/deploy_key $SERVER_USER@$SERVER_HOST << 'EOF'
+            cd /opt/openskills
+            if [ -d "current" ]; then
+              mv current backup-$(date +%Y%m%d-%H%M%S)
+            fi
+            mkdir -p current
+            tar -xzf /tmp/openskills-deploy.tar.gz -C current/
+            cd current
+            npm ci --omit=dev
+            rm /tmp/openskills-deploy.tar.gz
+          EOF
+
+      - name: 部署到 Staging
+        if: github.event.inputs.environment == 'staging'
+        run: |
+          echo "部署到 Staging 环境"
+          # 可在此添加 staging 部署逻辑
+
+      - name: 健康检查
+        run: |
+          echo "等待服务启动..."
+          sleep 30
+          
+          # 检查 API 健康状态
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            API_URL="${{ secrets.PRODUCTION_API_URL }}"
+          else
+            API_URL="${{ secrets.STAGING_API_URL }}"
+          fi
+          
+          response=$(curl -s -o /dev/null -w "%{http_code}" $API_URL/health || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "健康检查失败: HTTP $response"
+            exit 1
+          fi
+          echo "健康检查通过"
+
+      - name: 发送部署通知
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅ 成功' : '❌ 失败';
+            const environment = '${{ github.event.inputs.environment }}';
+            const version = '${{ github.event.inputs.version }}' || 'latest';
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number || 1,
+              body: `## 部署通知\n\n- 环境: **${environment}**\n- 版本: **${version}**\n- 状态: ${status}\n- 执行者: @${{ github.actor }}\n- 时间: ${new Date().toISOString()}`
+            }).catch(() => {
+              console.log('无法创建评论，可能没有关联的 issue');
+            });

@@ -1,0 +1,51 @@
+---
+description: Agent emotion response and experience extraction — detect user emotion and extract improvement experience (Agent 情绪响应与经验提取)
+alwaysApply: true
+---
+
+# Agent Emotion Response and Experience Extraction
+<!-- Agent 情绪响应和经验提取机制 -->
+
+## Emotion Recognition
+<!-- 情绪识别 -->
+
+- **Positive**: praise, thanks, satisfaction, etc.
+- **Negative**: dissatisfaction, complaint, anger, disappointment, etc.
+- Detect keywords and tone.
+
+## Response Flow
+<!-- 响应流程 -->
+
+1. **Recognize emotion**
+   - Analyze tone and keywords of the user message.
+   - Assess intensity.
+
+2. **Summarize the event**
+   - Record the action/feature that triggered the emotion.
+   - Record context.
+   - Record the user’s concrete feedback.
+
+3. **Extract experience**
+   - For positive: what went well.
+   - For negative: what needs improvement and how to avoid similar issues.
+
+4. **Create proposal**
+   - If there is an improvable point, create a proposal.
+   - Set `trigger: emotion` in the proposal.
+   - Record emotion type and reason in `proposerMeta`.
+
+## Proposal format example
+<!-- Proposal 格式示例 -->
+
+```json
+{
+  "trigger": "emotion",
+  "proposerMeta": {
+    "source": "agent",
+    "emotionType": "negative|positive",
+    "emotionReason": "User was dissatisfied with XXX because...",
+    "summary": "Event summary..."
+  }
+}
+```
+<!-- 中文示例：emotionReason 可为「用户对XXX功能表示不满，因为...」，summary 为「事件总结...」。 -->

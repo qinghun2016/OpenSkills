@@ -1,0 +1,15 @@
+# Source and build config (ship out/ only)
+src/
+tsconfig.json
+.gitignore
+
+# Dev / test
+.vscode-test/
+.cursor/
+.openskills-skill-proposer-report.md
+
+# Pack script (not shipped)
+scripts/
+
+# Optional: reduce package size (uncomment to exclude source maps)
+# out/**/*.map
