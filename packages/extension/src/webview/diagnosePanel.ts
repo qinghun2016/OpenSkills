@@ -542,7 +542,7 @@ export class DiagnosePanel {
   <div class="header">
     <h1>🔍 OpenSkills 系统诊断</h1>
     <div class="header-actions">
-      <button class="btn btn-secondary" onclick="refresh()">🔄 刷新</button>
+      <button class="btn btn-secondary" data-command="refresh">🔄 刷新</button>
     </div>
   </div>
 
@@ -595,15 +595,15 @@ export class DiagnosePanel {
       ` : ''}
       <div class="component-actions">
         ${!data.skillsAdmin.skillsAdminFileExists ? `
-        <button class="btn btn-primary" onclick="runHealthCheck()">创建 Agent</button>
+        <button class="btn btn-primary" data-command="runHealthCheck">创建 Agent</button>
         ` : ''}
         ${data.skillsAdmin.needsReload ? `
-        <button class="btn btn-warning" onclick="reloadWindow()">重新加载窗口（必须）</button>
+        <button class="btn btn-warning" data-command="reloadWindow">重新加载窗口（必须）</button>
         ` : ''}
         ${data.skillsAdmin.skillsAdminFileExists && !data.skillsAdmin.skillsAdminAgentAvailable && !data.skillsAdmin.needsReload ? `
-        <button class="btn btn-warning" onclick="reloadWindow()">尝试重新加载</button>
+        <button class="btn btn-warning" data-command="reloadWindow">尝试重新加载</button>
         ` : ''}
-        <button class="btn btn-secondary" onclick="runHealthCheck()">健康检查</button>
+        <button class="btn btn-secondary" data-command="runHealthCheck">健康检查</button>
       </div>
     </div>
 
@@ -628,7 +628,7 @@ export class DiagnosePanel {
       ` : ''}
       <div class="component-actions">
         ${!data.agentCli.available ? `
-        <button class="btn btn-secondary" onclick="openSettings()">查看安装指南</button>
+        <button class="btn btn-secondary" data-command="openSettings">查看安装指南</button>
         ` : ''}
       </div>
     </div>
@@ -659,7 +659,7 @@ export class DiagnosePanel {
       </div>
       ${data.proposals.pending > 0 ? `
       <div class="component-actions">
-        <button class="btn btn-primary" onclick="triggerWake()">触发唤醒</button>
+        <button class="btn btn-primary" data-command="triggerWake">触发唤醒</button>
       </div>
       ` : ''}
     </div>
@@ -681,7 +681,7 @@ export class DiagnosePanel {
       </div>
       ${data.wake.hasPending ? `
       <div class="component-actions">
-        <button class="btn btn-primary" onclick="triggerWake()">立即唤醒</button>
+        <button class="btn btn-primary" data-command="triggerWake">立即唤醒</button>
       </div>
       ` : ''}
     </div>
@@ -710,49 +710,29 @@ export class DiagnosePanel {
   <div class="quick-actions">
     <h3>🚀 快速操作</h3>
     <div class="quick-actions-grid">
-      <button class="btn btn-primary" onclick="runHealthCheck()">健康检查</button>
-      <button class="btn btn-primary" onclick="runDiagnose()">完整诊断</button>
-      <button class="btn btn-success" onclick="triggerWake()">触发唤醒</button>
-      <button class="btn btn-secondary" onclick="init()">初始化项目</button>
-      <button class="btn btn-secondary" onclick="openSettings()">打开设置</button>
-      <button class="btn btn-secondary" onclick="refresh()">刷新状态</button>
+      <button class="btn btn-primary" data-command="runHealthCheck">健康检查</button>
+      <button class="btn btn-primary" data-command="runDiagnose">完整诊断</button>
+      <button class="btn btn-success" data-command="triggerWake">触发唤醒</button>
+      <button class="btn btn-secondary" data-command="init">初始化项目</button>
+      <button class="btn btn-secondary" data-command="openSettings">打开设置</button>
+      <button class="btn btn-secondary" data-command="refresh">刷新状态</button>
     </div>
   </div>
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
 
-    function refresh() {
+    // Use event delegation: CSP with script-src nonce blocks inline onclick handlers.
+    document.addEventListener('click', function(e) {
+      const btn = e.target && e.target.closest ? e.target.closest('button[data-command]') : null;
+      if (!btn) return;
+      const cmd = btn.getAttribute('data-command');
+      if (cmd) vscode.postMessage({ command: cmd });
+    });
+
+    // Auto refresh every 30s
+    setInterval(function() {
       vscode.postMessage({ command: 'refresh' });
-    }
-
-    function runHealthCheck() {
-      vscode.postMessage({ command: 'runHealthCheck' });
-    }
-
-    function runDiagnose() {
-      vscode.postMessage({ command: 'runDiagnose' });
-    }
-
-    function triggerWake() {
-      vscode.postMessage({ command: 'triggerWake' });
-    }
-
-    function init() {
-      vscode.postMessage({ command: 'init' });
-    }
-
-    function reloadWindow() {
-      vscode.postMessage({ command: 'reloadWindow' });
-    }
-
-    function openSettings() {
-      vscode.postMessage({ command: 'openSettings' });
-    }
-
-    // 自动刷新（每30秒）
-    setInterval(() => {
-      refresh();
     }, 30000);
   </script>
 </body>

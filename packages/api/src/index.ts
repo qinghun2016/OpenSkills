@@ -16,7 +16,6 @@ if (process.env.OPENSKILLS_PROCESS_NAME) {
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import * as fs from 'fs';
-import * as path from 'path';
 
 // Routes
 import proposalsRouter from './routes/proposals';

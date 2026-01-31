@@ -14,7 +14,7 @@ import { registerInitCommand } from './commands/init';
 import { registerApproveCommand } from './commands/approve';
 import { registerRejectCommand } from './commands/reject';
 import { registerTriggerWakeCommand, startSkillsAdminAgent } from './commands/triggerWake';
-import { registerOpenWebCommand } from './commands/openWeb';
+import { registerOpenWebCommand, registerOpenWebInBrowserCommand } from './commands/openWeb';
 import { registerOpenPanelCommand, OpenSkillsPanel } from './webview/panel';
 import { registerHealthCheckCommand } from './commands/healthCheck';
 import { registerDiagnoseCommand } from './commands/diagnose';
@@ -114,6 +114,7 @@ export async function activate(context: vscode.ExtensionContext) {
       registerRejectCommand(context),
       registerTriggerWakeCommand(context),
       registerOpenWebCommand(context),
+      registerOpenWebInBrowserCommand(),
       registerOpenPanelCommand(context),
       registerRefreshCommand(),
       registerHealthCheckCommand(context),

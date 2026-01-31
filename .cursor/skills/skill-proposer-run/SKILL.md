@@ -13,6 +13,8 @@ triggers:
 
 This skill chains **skill-proposer** and **skills-admin**. Run in this order:
 
+
+Execution order: skill-proposer first, then skills-admin (no skip).
 1. **Run skill-proposer**: Scan user- and project-level `.cursor/skills/`, analyze each skill, generate proposals via `POST {API_BASE}/api/proposals`.
 2. **Act as skills-admin**: Fetch pending proposals, review per skills-admin flow, approve or reject via API and apply.
 2a. **Handoff**: When acting as skills-admin, first call GET /api/scheduler/handoff/snapshot; if data exists, resume from pending list.

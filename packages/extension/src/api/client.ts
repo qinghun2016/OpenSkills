@@ -128,6 +128,8 @@ export class ApiClient {
         // 提供更详细的错误信息
         if (errorMessage.includes('ECONNREFUSED')) {
           detailedError = `API 连接被拒绝: ${this.baseUrl}。请确保 API 服务正在运行。`;
+        } else if (errorMessage.includes('ECONNRESET')) {
+          detailedError = `API 连接被重置: ${this.baseUrl}。请检查 API 服务是否已启动、是否正常运行，或端口是否与配置一致（默认 3847）。`;
         } else if (errorMessage.includes('ENOTFOUND')) {
           detailedError = `API 主机未找到: ${this.baseUrl}。请检查 API URL 配置。`;
         } else if (errorMessage.includes('ETIMEDOUT')) {

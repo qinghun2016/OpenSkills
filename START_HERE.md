@@ -156,7 +156,7 @@ npm run dev
 
 ### 5. 查看已应用记录
 
-在 Web 界面 **Proposals** 页使用「已批准」筛选查看已应用记录（History 页已下线，详见 `docs/HISTORY_PAGE_REMOVAL_AND_STATUS_ROLLBACK.md`）。
+在 Web 界面 **Proposals** 页使用「已批准」筛选查看已应用记录。
 
 ## 🐛 故障排查
 
@@ -192,7 +192,6 @@ netstat -ano | findstr :<WEB_PORT>
 
 - 📘 查看完整文档: [README.md](./README.md)
 - 🚀 部署指南: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
-- 🔄 CI/CD 指南: [docs/CI_CD_GUIDE.md](./docs/CI_CD_GUIDE.md)
 - 🎓 快速入门: [docs/QUICK_START.md](./docs/QUICK_START.md)
 
 ## 💡 提示

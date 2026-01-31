@@ -866,7 +866,7 @@ export async function mergeRewardsHistory(options: MergeOptions = {}): Promise<{
       const archive: MergedArchive = {
         archivedAt: new Date().toISOString(),
         count: records.length,
-        entries: records as MergedArchive['entries'],
+        entries: records as unknown as MergedArchive['entries'],
       };
 
       const archiveFileName = `rewards-${dateGroup}.json`;
@@ -889,7 +889,7 @@ export async function mergeRewardsHistory(options: MergeOptions = {}): Promise<{
     const archive: MergedArchive = {
       archivedAt: new Date().toISOString(),
       count: records.length,
-      entries: records as MergedArchive['entries'],
+      entries: records as unknown as MergedArchive['entries'],
     };
 
     const archiveFileName = `rewards-${getDateGroup(new Date(), 'month')}.json`;

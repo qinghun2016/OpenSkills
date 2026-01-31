@@ -71,6 +71,11 @@
         "icon": "$(globe)"
       },
       {
+        "command": "openskills.openWebInBrowser",
+        "title": "在浏览器中打开 (Open in Browser)",
+        "icon": "$(link-external)"
+      },
+      {
         "command": "openskills.healthCheck",
         "title": "OpenSkills: Health Check",
         "icon": "$(heart)"
@@ -104,7 +109,7 @@
     "viewsWelcome": [
       {
         "view": "openskills.home",
-        "contents": "[打开 Web 主页面](command:openskills.openPanel)"
+        "contents": "[打开 Web 主页面](command:openskills.openPanel)\n[在浏览器中打开](command:openskills.openWebInBrowser)"
       }
     ],
     "menus": {
@@ -114,6 +119,12 @@
           "when": "view == openskills.home",
           "group": "navigation",
           "icon": "$(globe)"
+        },
+        {
+          "command": "openskills.openWebInBrowser",
+          "when": "view == openskills.home",
+          "group": "navigation",
+          "icon": "$(link-external)"
         }
       ]
     },

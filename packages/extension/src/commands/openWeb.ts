@@ -69,3 +69,12 @@ export function registerOpenWebCommand(context: vscode.ExtensionContext): vscode
 export async function openWebUrlInBrowser(): Promise<boolean> {
   return openUrlInBrowser(getWebUrl());
 }
+
+/**
+ * 注册「在浏览器中打开」命令（侧边栏等用，无弹窗）
+ */
+export function registerOpenWebInBrowserCommand(): vscode.Disposable {
+  return vscode.commands.registerCommand('openskills.openWebInBrowser', () => {
+    return openWebUrlInBrowser();
+  });
+}

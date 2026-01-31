@@ -2,7 +2,7 @@
 
 本指南详细说明如何使用和配置 OpenSkills 的 CI/CD 流程。
 
-> **说明**：CI 已移除 Docker 镜像构建步骤；部署工作流改为 npm 构建与上传。文档中涉及 Docker 镜像、docker-compose 的部分仅作参考。
+> **说明**：项目使用 npm 构建与部署，不包含 Docker。
 
 ## 目录
 
@@ -26,7 +26,7 @@ OpenSkills 使用 GitHub Actions 实现完整的 CI/CD 流程：
 | 文件 | 触发时机 | 用途 |
 |------|---------|------|
 | `ci.yml` | Push/PR 到 main/develop | 持续集成：测试、构建、检查 |
-| `release.yml` | 推送版本标签 (v*.*.*) | 创建 Release 和 Docker 镜像 |
+| `release.yml` | 推送版本标签 (v*.*.*) | 创建 GitHub Release 和 npm 包 |
 | `deploy.yml` | 手动触发 | 部署到 staging/production |
 
 ## GitHub Actions 工作流
@@ -54,11 +54,7 @@ OpenSkills 使用 GitHub Actions 实现完整的 CI/CD 流程：
 - 构建 Web
 - 上传构建产物
 
-# 4. Docker 镜像构建 (仅 main 分支)
-- 构建 API Docker 镜像
-- 构建 Web Docker 镜像
-
-# 5. 安全扫描
+# 4. 安全扫描
 - npm audit
 - Trivy 漏洞扫描
 ```
@@ -82,13 +78,10 @@ git push origin v1.0.0
 2. 构建所有包
 3. 创建 npm 发布包
 4. 生成变更日志
-5. 创建 GitHub Release
-6. 构建并推送 Docker 镜像到 Docker Hub
+5. 创建 GitHub Release（含 npm 包）
 
 **产物**：
-- GitHub Release 页面
-- Docker 镜像：`username/openskills-api:latest` 和 `:版本号`
-- Docker 镜像：`username/openskills-web:latest` 和 `:版本号`
+- GitHub Release 页面及附件（api、web 的 npm 包）
 
 ### 3. Deploy 工作流 (部署)
 
@@ -118,16 +111,6 @@ git push origin v1.0.0
 1. 进入仓库 Settings → Secrets and variables → Actions
 2. 点击 "New repository secret"
 3. 添加以下 Secrets：
-
-#### Docker Hub (用于镜像发布)
-
-```
-名称: DOCKER_USERNAME
-值: 你的 Docker Hub 用户名
-
-名称: DOCKER_PASSWORD
-值: 你的 Docker Hub 密码或 Access Token
-```
 
 #### SSH 部署 (可选)
 
@@ -204,11 +187,6 @@ git push origin v1.0.0
    └───┬────┘
        │
        ▼
-   ┌─────────┐
-   │ Docker  │
-   └───┬─────┘
-       │
-       ▼
    ┌──────────┐
    │ Security │
    └──────────┘
@@ -228,9 +206,6 @@ jobs:
     
   build:
     needs: [lint, test]  # 等待 lint 和 test 完成
-    
-  docker-build:
-    needs: [build]       # 等待 build 完成
 ```
 
 ### 缓存策略
@@ -243,11 +218,6 @@ jobs:
   with:
     cache: 'npm'  # 自动缓存 node_modules
 
-# Docker 层缓存
-- uses: docker/build-push-action@v5
-  with:
-    cache-from: type=gha
-    cache-to: type=gha,mode=max
 ```
 
 ## 最佳实践
@@ -343,12 +313,7 @@ git checkout v0.9.0
 git tag -a v0.9.1 -m "Rollback to v0.9.0"
 git push origin v0.9.1
 
-# 方法 2: 使用 Docker 镜像回滚
-docker pull username/openskills-api:0.9.0
-docker-compose up -d
-
-# 方法 3: Kubernetes 回滚
-kubectl rollout undo deployment/openskills-api -n openskills
+# 方法 2: 在服务器上回滚到之前部署的备份
 ```
 
 ## 故障排查
@@ -391,22 +356,7 @@ npm test -- proposals.test.ts
 npm test -- -u
 ```
 
-#### 3. Docker 构建失败
-
-**错误信息**：
-```
-Error: failed to solve: process "/bin/sh -c npm ci" did not complete successfully
-```
-
-**解决方案**：
-- 检查 Dockerfile 中的路径
-- 确保 .dockerignore 正确配置
-- 本地测试构建：
-  ```bash
-  docker build -f docker/Dockerfile.api -t test .
-  ```
-
-#### 4. 部署失败
+#### 3. 部署失败
 
 **错误信息**：
 ```
@@ -426,10 +376,6 @@ Error: Health check failed
 ```bash
 # GitHub Actions 日志
 # 在浏览器中查看 Actions 页面
-
-# Docker 日志
-docker-compose logs -f api
-docker-compose logs -f web
 
 # 服务器日志
 ssh user@server
@@ -533,7 +479,6 @@ on:
 ## 相关资源
 
 - [GitHub Actions 文档](https://docs.github.com/en/actions)
-- [Docker 最佳实践](https://docs.docker.com/develop/dev-best-practices/)
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [Semantic Versioning](https://semver.org/)
 
