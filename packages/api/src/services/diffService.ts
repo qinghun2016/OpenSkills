@@ -143,7 +143,7 @@ export async function applyDiff(
 ): Promise<DiffApplyResult> {
   const lockOperation = 'diff-apply';
   const lockAcquired = await acquireLock(lockOperation);
-  
+
   if (!lockAcquired) {
     return {
       success: false,
@@ -151,25 +151,24 @@ export async function applyDiff(
     };
   }
 
-  const safety = checkDiffSafety(diffString);
-  if (!safety.safe) {
-    return {
-      success: false,
-      error: safety.reason ?? 'Diff safety check failed',
-    };
-  }
-  if (options.scope === 'project') {
-    const resolvedPath = path.resolve(skillPath);
-    const workspaceRoot = getBaseDir();
-    if (!isPathWithinWorkspace(resolvedPath, workspaceRoot)) {
+  try {
+    const safety = checkDiffSafety(diffString);
+    if (!safety.safe) {
       return {
         success: false,
-        error: 'Target path outside workspace',
+        error: safety.reason ?? 'Diff safety check failed',
       };
     }
-  }
-
-  try {
+    if (options.scope === 'project') {
+      const resolvedPath = path.resolve(skillPath);
+      const workspaceRoot = getBaseDir();
+      if (!isPathWithinWorkspace(resolvedPath, workspaceRoot)) {
+        return {
+          success: false,
+          error: 'Target path outside workspace',
+        };
+      }
+    }
     // Check if file exists
     const exists = await fileExists(skillPath);
     let originalContent = '';

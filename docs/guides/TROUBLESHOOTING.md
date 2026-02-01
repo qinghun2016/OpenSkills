@@ -147,6 +147,25 @@ VITE v5.4.21  ready in 579 ms
    - 打开「OpenSkills Wake」终端即可看到执行过程
 2. **或使用 agent chat + 手动提交**: 将 `wakeUsePrintMode` 设为 `false`，触发后若内容已填入聊天框，手动按 Enter 提交
 
+### 问题 3.2: Crawler 和 Admin 定时都没有如期唤醒
+
+**症状**:
+- 配置了 `crawl.schedule` 和 `wake.schedule`（例如 `"0 2 * * *"` 每天 2:00），但到点没有执行爬取或唤醒。
+
+**原因**:
+- **Crawler**：定时任务跑在 **API 服务** 里（`packages/api` 的 CrawlScheduler）。只有 API 进程在运行，到点才会执行爬取。若 2:00 时 API 未启动（例如未执行 `npm run dev` 或 `npm run dev:api`），cron 不会触发。
+- **Admin/Wake**：分两段：
+  1. **API 的 WakeScheduler**：到点只做「统计 pending 数量 → 若有则写 `.openskills/wake/pending.json`」。不会启动 Cursor 或 Agent。
+  2. **扩展的自动唤醒**：用 node-cron 按 `wake.schedule` 检查是否存在且未处理的 `wake/pending.json`；若存在才执行「触发唤醒」（如启动 Agent CLI）。
+- 因此「如期唤醒」需要：**到点时 API 在跑**（才会写 pending.json / 执行爬取），且 **Cursor 在跑**（扩展的 cron 才会检查并触发 admin 唤醒）。若 2:00 时 API 或 Cursor 未运行，Crawler 和 Admin 都不会触发。
+
+**解决方案**:
+1. **保证到点有进程在跑**：到预定时间（如 2:00）保持 API 运行（例如 `npm run dev:api` 或后台常驻进程），需要 admin 唤醒时同时保持 Cursor 打开该工作区。
+2. **用系统 cron 替代内存 cron**：若无法常开 API，可用系统定时任务到点调 API：
+   - Crawler: `POST /api/scheduler/crawl/trigger`
+   - Wake: `POST /api/scheduler/wake/trigger`（仅写 pending 并记录；若 Cursor 未开，仍需之后打开 Cursor 或再调一次触发）。
+3. **时区**：cron 使用 `TZ` 或系统时区；确认 `config.json` 里 schedule 的「2:00」是本地时间还是 UTC，必要时设置 `TZ` 或调整表达式。
+
 ### 问题 4: 时间戳判断错误导致重复触发
 
 **症状**: 

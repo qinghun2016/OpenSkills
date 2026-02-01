@@ -8,6 +8,8 @@ triggers:
 ---
 # Skill-Proposer-Run
 
+<!-- Run proposer first, then admin. -->
+
 ## Execution flow
 <!-- 执行流程 -->
 

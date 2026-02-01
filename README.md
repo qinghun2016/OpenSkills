@@ -123,11 +123,13 @@ API 默认端口 3000（npm），插件模式 3847；Web 默认 3848。
 
 ## 文档
 
+- [Agent 自主进化方向与项目定位](docs/AGENT_SELF_EVOLUTION_DIRECTIONS.md) — 进化可能方向、OpenSkills 在版图中的位置、是否值得继续做
 - [快速入门](docs/QUICK_START.md)
 - [部署指南](docs/DEPLOYMENT.md)
 - [GitHub Token 配置](docs/guides/GITHUB_TOKEN_SETUP.md)
 - [如何唤醒](docs/guides/如何唤醒skills-admin.md)
 - [用户操作手册](docs/guides/用户操作手册.md)
+- [Moltbook 发帖指南](docs/guides/MOLTBOOK.md) — 带项目到 Moltbook 与其他 agent 交流、征集意见
 
 ## License
 
